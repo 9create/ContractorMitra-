@@ -329,7 +329,8 @@ class ContractorMitra:
     
     def sales_report(self):
         """Sales report window"""
-        messagebox.showinfo("Info", "Sales report functionality will be implemented here")
+        from reports_window import ReportsWindow
+        ReportsWindow(self.root)
     
     def pending_payments(self):
         """Pending payments window"""
