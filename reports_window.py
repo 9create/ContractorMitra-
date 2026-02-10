@@ -124,6 +124,25 @@ class ReportsWindow:
         tk.Button(export_frame, text="❌ Close", 
                  command=self.window.destroy, bg="#95a5a6", fg="white", width=15).pack(side=tk.LEFT, padx=5)
     
+    def parse_currency(self, value):
+        """Convert currency string to float"""
+        if value is None:
+            return 0.0
+        
+        try:
+            # Convert to string and clean
+            str_value = str(value)
+            # Remove currency symbols, commas, spaces
+            cleaned = str_value.replace('₹', '').replace(',', '').replace(' ', '').strip()
+            
+            # If empty after cleaning, return 0
+            if not cleaned:
+                return 0.0
+                
+            return float(cleaned)
+        except ValueError:
+            return 0.0
+    
     def set_quick_date(self, days):
         """Set quick date range"""
         today = datetime.now()
@@ -205,12 +224,15 @@ class ReportsWindow:
         self.tree.column("Quotation No", width=120)
         
         # Add data
-        total_sales = 0
-        total_gst = 0
+        total_sales = 0.0
+        total_gst = 0.0
+        
         for sale in sales:
             self.tree.insert("", "end", values=sale)
-            total_sales += sale[6] if sale[6] else 0  # grand_total
-            total_gst += sale[5] if sale[5] else 0  # gst_amount
+            
+            # FIXED: Use parse_currency to convert strings to float
+            total_sales += self.parse_currency(sale[5])  # grand_total at index 5
+            total_gst += self.parse_currency(sale[4])    # gst_amount at index 4
         
         conn.close()
         
@@ -251,10 +273,10 @@ class ReportsWindow:
         self.tree.column("Customer", width=150)
         
         # Add data
-        total_pending = 0
+        total_pending = 0.0
         for item in pending:
             self.tree.insert("", "end", values=item)
-            total_pending += item[3] if item[3] else 0
+            total_pending += self.parse_currency(item[3])  # FIXED: Use parse_currency
         
         conn.close()
         
@@ -298,10 +320,10 @@ class ReportsWindow:
         
         # Add data
         total_customers = len(customers)
-        total_revenue = 0
+        total_revenue = 0.0
         for cust in customers:
             self.tree.insert("", "end", values=cust)
-            total_revenue += cust[3] if cust[3] else 0
+            total_revenue += self.parse_currency(cust[3])  # FIXED: Use parse_currency
         
         conn.close()
         
@@ -309,10 +331,11 @@ class ReportsWindow:
         tk.Label(self.summary_frame, text=f"👥 CUSTOMER REPORT", 
                 font=("Arial", 12, "bold")).pack(pady=5)
         
+        avg_revenue = total_revenue / max(total_customers, 1)
         tk.Label(self.summary_frame, 
                 text=f"Total Customers: {total_customers} | " +
                      f"Total Revenue: ₹ {total_revenue:,.2f} | " +
-                     f"Avg per Customer: ₹ {total_revenue/max(total_customers,1):,.2f}",
+                     f"Avg per Customer: ₹ {avg_revenue:,.2f}",
                 font=("Arial", 10)).pack()
     
     def generate_material_report(self):
@@ -349,12 +372,12 @@ class ReportsWindow:
         self.tree.column("Material Name", width=200)
         
         # Add data
-        total_items = 0
-        total_value = 0
+        total_items = 0.0
+        total_value = 0.0
         for mat in materials:
             self.tree.insert("", "end", values=mat)
-            total_items += mat[2] if mat[2] else 0
-            total_value += mat[3] if mat[3] else 0
+            total_items += self.parse_currency(mat[2])  # FIXED: Use parse_currency for quantity
+            total_value += self.parse_currency(mat[3])  # FIXED: Use parse_currency for amount
         
         conn.close()
         
@@ -365,7 +388,7 @@ class ReportsWindow:
         tk.Label(self.summary_frame, 
                 text=f"Period: {date_from} to {date_to} | " +
                      f"Unique Materials: {len(materials)} | " +
-                     f"Total Quantity: {total_items} | " +
+                     f"Total Quantity: {total_items:,.2f} | " +
                      f"Total Value: ₹ {total_value:,.2f}",
                 font=("Arial", 10)).pack()
     
@@ -398,17 +421,17 @@ class ReportsWindow:
         
         # Add data
         total_invoices = 0
-        total_sales = 0
-        total_gst = 0
+        total_sales = 0.0
+        total_gst = 0.0
         
         for month_data in monthly:
             month, invoices, sales, gst = month_data
-            net = sales - gst if sales and gst else 0
+            net = self.parse_currency(sales) - self.parse_currency(gst)
             self.tree.insert("", "end", values=(month, invoices, sales, gst, net))
             
             total_invoices += invoices if invoices else 0
-            total_sales += sales if sales else 0
-            total_gst += gst if gst else 0
+            total_sales += self.parse_currency(sales)
+            total_gst += self.parse_currency(gst)
         
         conn.close()
         
@@ -416,11 +439,12 @@ class ReportsWindow:
         tk.Label(self.summary_frame, text=f"📈 MONTHLY SUMMARY REPORT", 
                 font=("Arial", 12, "bold")).pack(pady=5)
         
+        avg_monthly = total_sales / max(len(monthly), 1)
         tk.Label(self.summary_frame, 
                 text=f"Total Months: {len(monthly)} | " +
                      f"Total Invoices: {total_invoices} | " +
                      f"Total Sales: ₹ {total_sales:,.2f} | " +
-                     f"Avg Monthly: ₹ {total_sales/max(len(monthly),1):,.2f}",
+                     f"Avg Monthly: ₹ {avg_monthly:,.2f}",
                 font=("Arial", 10)).pack()
     
     def export_excel(self):
