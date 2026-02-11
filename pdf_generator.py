@@ -38,7 +38,13 @@ class PDFGenerator:
             alignment=1,  # Center alignment
             fontSize=10
         ))
-    
+    def format_date(self, date_str):
+        """Format date to DD-MMM-YYYY"""
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            return date_obj.strftime('%d-%b-%Y')
+        except:
+            return date_str
     def generate_quotation_pdf(self, quotation_id, output_path="quotation.pdf"):
         """Generate PDF for a quotation"""
         # Get quotation data from database
@@ -71,12 +77,12 @@ class PDFGenerator:
         
         # 3. Quotation Details Table
         quote_details = [
-            ["Quotation No:", quote_data['quote_no'], "Date:", quote_data['date']],
+            ["Quotation No:", quote_data['quote_no'], "Date:", self.format_date(quote_data['date'])],
             ["Customer:", quote_data['customer_name'], "Phone:", quote_data['customer_phone']],
             ["Address:", quote_data['customer_address'], "GSTIN:", quote_data['customer_gstin'] or "N/A"]
         ]
         
-        quote_table = Table(quote_details, colWidths=[80, 200, 60, 200])
+        quote_table = Table(quote_details, colWidths=[80, 180, 60, 150])
         quote_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 10),

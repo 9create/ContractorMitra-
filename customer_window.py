@@ -10,12 +10,33 @@ class CustomerWindow:
         self.window = tk.Toplevel(parent)
         self.window.title("Customer Management - ContractorMitra")
         self.window.geometry("900x600")
-        
-        # Initialize
-        self.setup_ui()
+         # Initialize
+         self.setup_ui()
         if mode == 'view':
             self.load_customers()
+
+    def focus_next_widget(self, event):
+        """Tab press karne par next widget pe focus karo"""
+        event.widget.tk_focusNext().focus()
+        return 'break'  # Default Tab behavior rokne ke liye        
+        
+    def show_paste_menu(self, event):
+        """Right-click par Paste menu dikhao"""
+        widget = event.widget
+        menu = tk.Menu(self.window, tearoff=0)
+        menu.add_command(label="Paste", command=lambda: self.paste_text(widget))
+        menu.tk_popup(event.x_root, event.y_root)
+        menu.grab_release()
+        return 'break'
     
+    def paste_text(self, widget):
+        """Clipboard se text paste karo"""
+        try:
+            text = self.window.clipboard_get()
+            widget.insert(tk.INSERT, text)
+        except tk.TclError:
+            pass  # Clipboard empty hai
+
     def setup_ui(self):
         """Setup customer window UI"""
         # Main container
@@ -50,10 +71,16 @@ class CustomerWindow:
             if key == 'address':
                 entry = tk.Text(form_frame, height=4, width=40)
                 entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
+                entry.bind('<Tab>', self.focus_next_widget)
+                entry.bind('<Button-3>', self.show_paste_menu)
+                entry.bind('<Button-2>', self.show_paste_menu)  # Mac support
+
             else:
                 entry = tk.Entry(form_frame, width=40)
                 entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
-            
+                entry.bind('<Tab>', self.focus_next_widget)
+                entry.bind('<Button-3>', self.show_paste_menu)
+                entry.bind('<Button-2>', self.show_paste_menu)  # Mac support
             self.entries[key] = entry
         
         # Buttons
@@ -262,10 +289,14 @@ class CustomerWindow:
                 entry = tk.Text(form_frame, height=4, width=30)
                 entry.insert("1.0", value)
                 entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
+                entry.bind('<Tab>', self.focus_next_widget)
+                entry.bind('<Button-3>', self.show_paste_menu)
             else:
                 entry = tk.Entry(form_frame, width=30)
                 entry.insert(0, value)
                 entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
+                entry.bind('<Tab>', self.focus_next_widget)
+                entry.bind('<Button-3>', self.show_paste_menu)
             
             entries[key] = entry
         

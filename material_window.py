@@ -12,7 +12,29 @@ class MaterialWindow:
         # Initialize
         self.setup_ui()
         self.load_materials()
-    
+
+    def focus_next_widget(self, event):
+        """Tab press karne par next widget pe focus karo"""
+        event.widget.tk_focusNext().focus()
+        return 'break'  
+
+    def show_paste_menu(self, event):
+        """Right-click par Paste menu dikhao"""
+        widget = event.widget
+        menu = tk.Menu(self.window, tearoff=0)
+        menu.add_command(label="Paste", command=lambda: self.paste_text(widget))
+        menu.tk_popup(event.x_root, event.y_root)
+        menu.grab_release()
+        return 'break'
+
+    def paste_text(self, widget):
+        """Clipboard se text paste karo"""
+        try:
+            text = self.window.clipboard_get()
+            widget.insert(tk.INSERT, text)
+        except tk.TclError:
+            pass
+
     def setup_ui(self):
         """Setup material window UI"""
         # Main container
@@ -157,9 +179,13 @@ class MaterialWindow:
                 entry = tk.Entry(form_frame, width=30)
                 entry.insert(0, "0.0" if key == 'rate' else "18.0")
                 entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
+                entry.bind('<Tab>', self.focus_next_widget)
+                entry.bind('<Button-3>', self.show_paste_menu)
             else:
                 entry = tk.Entry(form_frame, width=30)
                 entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
+                entry.bind('<Tab>', self.focus_next_widget)
+                entry.bind('<Button-3>', self.show_paste_menu)
             
             entries[key] = entry
         
@@ -269,6 +295,8 @@ class MaterialWindow:
                 entry = tk.Entry(form_frame, width=30)
                 entry.insert(0, str(value))
                 entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
+                entry.bind('<Tab>', self.focus_next_widget)
+                entry.bind('<Button-3>', self.show_paste_menu)
             
             entries[key] = entry
         
