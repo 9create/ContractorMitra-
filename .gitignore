@@ -1,0 +1,19 @@
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated PDFs  
+*.pdf
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment files
+.env
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db

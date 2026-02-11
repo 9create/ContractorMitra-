@@ -2,7 +2,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
-
+# Line 5 ke baad yeh add karo:
+from pdf_generator import PDFGenerator
+from tkinter import filedialog
+import os
 class QuotationWindow:
     def __init__(self, parent):
         self.parent = parent
@@ -324,7 +327,7 @@ class QuotationWindow:
                   self.charge_vars['other'].get(), gst_amount, grand_total, 'Draft'))
             
             quotation_id = cursor.lastrowid
-            
+            self.current_quotation_id = quotation_id  # ← YEH LINE ADD KARO
             # Insert items
             for child in self.tree.get_children():
                 values = self.tree.item(child)['values']
@@ -345,9 +348,66 @@ class QuotationWindow:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save: {str(e)}")
     
-    def generate_pdf(self):
+        def generate_pdf(self):
         """Generate PDF of quotation"""
-        messagebox.showinfo("Info", "PDF generation will be implemented in next version")
+        # Check if PDF generator is available
+        try:
+            from pdf_generator import PDFGenerator
+        except ImportError:
+            messagebox.showwarning("PDF Feature Not Available", 
+                                  "PDF generator is not installed.\n"
+                                  "Please install: pip install reportlab")
+            return
+        
+        # Pehle check karo quotation saved hai ya nahi
+        if not hasattr(self, 'current_quotation_id') or not self.current_quotation_id:
+            # Agar save nahi hai toh save karne ko bolo
+            save_first = messagebox.askyesno("Save Required", 
+                                             "Quotation must be saved before generating PDF.\n"
+                                             "Do you want to save it now?")
+            if save_first:
+                self.save_draft()
+                # Save ke baad check karo
+                if not hasattr(self, 'current_quotation_id') or not self.current_quotation_id:
+                    messagebox.showwarning("Warning", "Please save the quotation first")
+                    return
+            else:
+                return
+        
+        try:
+            # File save dialog
+            default_filename = f"Quotation_{self.quote_no}.pdf"
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+                initialfile=default_filename
+            )
+            
+            if not filename:  # User cancelled
+                return
+            
+            # Generate PDF
+            generator = PDFGenerator()
+            success = generator.generate_quotation_pdf(self.current_quotation_id, filename)
+            
+            if success:
+                messagebox.showinfo("Success", f"✅ PDF generated successfully!\n\nSaved to:\n{filename}")
+                
+                # Open PDF option
+                open_pdf = messagebox.askyesno("Open PDF", "Do you want to open the PDF?")
+                if open_pdf:
+                    try:
+                        if os.name == 'nt':  # Windows
+                            os.startfile(filename)
+                        elif os.name == 'posix':  # Linux/Mac
+                            os.system(f'xdg-open "{filename}"')
+                    except Exception as e:
+                        print(f"Could not open PDF: {e}")
+            else:
+                messagebox.showerror("Error", "Failed to generate PDF. Check quotation data.")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate PDF: {str(e)}")
     
     def print_quotation(self):
         """Print quotation"""
