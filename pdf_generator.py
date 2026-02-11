@@ -38,7 +38,13 @@ class PDFGenerator:
             alignment=1,  # Center alignment
             fontSize=10
         ))
-    
+    def format_date(self, date_str):
+        """Format date to DD-MMM-YYYY"""
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            return date_obj.strftime('%d-%b-%Y')
+        except:
+            return date_str
     def generate_quotation_pdf(self, quotation_id, output_path="quotation.pdf"):
         """Generate PDF for a quotation"""
         # Get quotation data from database
@@ -71,12 +77,12 @@ class PDFGenerator:
         
         # 3. Quotation Details Table
         quote_details = [
-            ["Quotation No:", quote_data['quote_no'], "Date:", quote_data['date']],
+            ["Quotation No:", quote_data['quote_no'], "Date:", self.format_date(quote_data['date'])],
             ["Customer:", quote_data['customer_name'], "Phone:", quote_data['customer_phone']],
             ["Address:", quote_data['customer_address'], "GSTIN:", quote_data['customer_gstin'] or "N/A"]
         ]
         
-        quote_table = Table(quote_details, colWidths=[80, 200, 60, 200])
+        quote_table = Table(quote_details, colWidths=[80, 180, 60, 150])
         quote_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
@@ -91,7 +97,7 @@ class PDFGenerator:
         story.append(Spacer(1, 10))
         
         # Table headers
-        table_data = [["Sr.No", "Description", "Quantity", "Unit", "Rate (₹)", "Amount (₹)"]]
+        table_data = [["Sr.No", "Description", "Quantity", "Unit", "Rate (Rs.)", "Amount (Rs.)"]]
         
         # Add items
         for idx, item in enumerate(quote_data['items'], 1):
@@ -124,17 +130,23 @@ class PDFGenerator:
         
         # 5. Totals Table
         totals_data = [
-            ["", "", "Sub Total:", f"₹ {quote_data['subtotal']:,.2f}"],
-            ["", "", "GST @ 18%:", f"₹ {quote_data['gst_amount']:,.2f}"],
-            ["", "", "Grand Total:", f"₹ {quote_data['grand_total']:,.2f}"]
+            ["", "", "Sub Total:", f"Rs. {quote_data['subtotal']:,.2f}"],
+            ["", "", "GST @ 18%:", f"Rs. {quote_data['gst_amount']:,.2f}"],
+            ["", "", "Grand Total:", f"Rs. {quote_data['grand_total']:,.2f}"]
         ]
         
         totals_table = Table(totals_data, colWidths=[100, 100, 100, 100])
         totals_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 12),
-            ('LINEABOVE', (3, 2), (3, 2), 2, colors.black),
+            ('ALIGN', (0, 0), (1, -1), 'CENTER'),     # Blank columns - center
+            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),      # Labels - right aligned
+            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),      # Amounts - right aligned
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (2, 0), (3, -1), 11),        # Labels & amounts - bigger
+            ('FONTSIZE', (0, 0), (1, -1), 8),         # Blank columns - small
+            ('FONTNAME', (2, 2), (3, 2), 'Helvetica-Bold'),  # Grand Total bold
+            ('LINEABOVE', (2, 2), (3, 2), 1, colors.black),   # Line above Grand Total
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
         ]))
         story.append(totals_table)
         story.append(Spacer(1, 30))
