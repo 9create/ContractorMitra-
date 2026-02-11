@@ -348,7 +348,7 @@ class QuotationWindow:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save: {str(e)}")
     
-        def generate_pdf(self):
+    def generate_pdf(self):
         """Generate PDF of quotation"""
         # Check if PDF generator is available
         try:
