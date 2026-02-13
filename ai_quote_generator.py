@@ -1,7 +1,6 @@
 """
 AI QUOTE GENERATOR - ContractorMitra
-FULLY PRODUCTION READY + VERIFIED
-Version: 3.0.0
+Working Version + Apple UI Polish
 """
 
 import tkinter as tk
@@ -28,57 +27,37 @@ class ModernStyle:
     FONT_NORMAL = ("SF Pro Text", 11)
     FONT_SMALL = ("SF Pro Text", 10)
 
-class ModernButton:
-    def __init__(self, parent, text, command, color=ModernStyle.ACCENT_BLUE, width=140, height=35):
-        self.frame = tk.Frame(parent, bg=ModernStyle.BG_COLOR)
-        self.canvas = tk.Canvas(self.frame, width=width, height=height,
-                               highlightthickness=0, bg=ModernStyle.BG_COLOR)
-        self.canvas.pack()
-        self.command = command
-        self.color = color
-        self.text = text
-        self.width = width
-        self.height = height
-
-        self.draw_button(color)
-
-        self.canvas.bind("<Enter>", self.on_enter)
-        self.canvas.bind("<Leave>", self.on_leave)
-        self.canvas.bind("<Button-1>", self.on_click)
-
-    def draw_button(self, fill_color):
-        self.canvas.delete("all")
-        self.canvas.create_rounded_rect(2, 2, self.width-2, self.height-2, 8,
-                                       fill=fill_color, outline="")
-        self.canvas.create_text(self.width//2, self.height//2, text=self.text,
-                               fill="white", font=ModernStyle.FONT_SMALL)
-
-    def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
-        points = [x1+r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y2-r,
-                 x2, y2, x2-r, y2, x1+r, y2, x1, y2, x1, y2-r,
-                 x1, y1+r, x1, y1]
-        self.canvas.create_polygon(points, smooth=True, **kwargs)
+class ModernButton(tk.Button):
+    def __init__(self, parent, text, command, bg_color=ModernStyle.ACCENT_BLUE, **kwargs):
+        super().__init__(
+            parent,
+            text=text,
+            command=command,
+            font=ModernStyle.FONT_NORMAL,
+            bg=bg_color,
+            fg="white",
+            activebackground=self.darken(bg_color),
+            activeforeground="white",
+            relief=tk.FLAT,
+            bd=0,
+            padx=15,
+            pady=8,
+            cursor="hand2",
+            **kwargs
+        )
+        self.bind("<Enter>", self.on_enter)
+        self.bind("<Leave>", self.on_leave)
 
     def darken(self, color):
         color = color.lstrip('#')
         r,g,b = int(color[0:2],16), int(color[2:4],16), int(color[4:6],16)
         return f"#{max(0,r-20):02x}{max(0,g-20):02x}{max(0,b-20):02x}"
 
-    def on_enter(self, event):
-        self.draw_button(self.darken(self.color))
+    def on_enter(self, e):
+        self.config(bg=self.darken(self['bg']))
 
-    def on_leave(self, event):
-        self.draw_button(self.color)
-
-    def on_click(self, event):
-        if self.command:
-            self.command()
-
-    def pack(self, **kwargs):
-        self.frame.pack(**kwargs)
-
-    def grid(self, **kwargs):
-        self.frame.grid(**kwargs)
+    def on_leave(self, e):
+        self.config(bg=self['bg'])
 
 class AIQuoteGenerator:
     def __init__(self, parent):
@@ -99,10 +78,6 @@ class AIQuoteGenerator:
         self.setup_ui()
         self.load_materials()
         self.load_customers()
-
-        # Make window modal but not blocking
-        self.window.transient(parent)
-        self.window.grab_set()
 
     def center_window(self):
         self.window.update_idletasks()
@@ -125,132 +100,103 @@ class AIQuoteGenerator:
                  font=ModernStyle.FONT_NORMAL, fg=ModernStyle.TEXT_SECONDARY,
                  bg=ModernStyle.BG_COLOR).pack()
 
-        # Customer Card
-        cust_card = tk.Frame(main, bg="white", relief=tk.FLAT)
-        cust_card.pack(fill=tk.X, pady=(0,20))
-        inner_cust = tk.Frame(cust_card, bg="white")
-        inner_cust.pack(fill=tk.X, padx=20, pady=15)
+        # Customer Section
+        cust_frame = tk.LabelFrame(main, text="Customer Details", font=ModernStyle.FONT_TITLE,
+                                   bg="white", fg=ModernStyle.TEXT_PRIMARY,
+                                   padx=15, pady=15, relief=tk.GROOVE, bd=1)
+        cust_frame.pack(fill=tk.X, pady=(0,20))
 
-        tk.Label(inner_cust, text="👤 Customer", font=ModernStyle.FONT_TITLE,
-                 fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(anchor=tk.W, pady=(0,10))
+        row1 = tk.Frame(cust_frame, bg="white")
+        row1.pack(fill=tk.X, pady=5)
 
-        row = tk.Frame(inner_cust, bg="white")
-        row.pack(fill=tk.X)
-        tk.Label(row, text="Select Customer:", font=ModernStyle.FONT_NORMAL,
+        tk.Label(row1, text="Select Customer:", font=ModernStyle.FONT_NORMAL,
                  fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(side=tk.LEFT, padx=(0,10))
 
-        self.customer_combo = ttk.Combobox(row, width=50, font=ModernStyle.FONT_NORMAL)
+        self.customer_combo = ttk.Combobox(row1, width=50, font=ModernStyle.FONT_NORMAL)
         self.customer_combo.pack(side=tk.LEFT, padx=(0,10))
         self.customer_combo.bind('<<ComboboxSelected>>', self.on_customer_select)
 
-        ModernButton(row, "+ New Customer", self.open_customer_window,
-                     ModernStyle.ACCENT_GREEN, 130).pack(side=tk.LEFT)
+        ModernButton(row1, "+ New Customer", self.open_customer_window,
+                     ModernStyle.ACCENT_GREEN).pack(side=tk.LEFT)
 
-        self.customer_info_var = tk.StringVar(value="👤 No customer selected")
-        tk.Label(inner_cust, textvariable=self.customer_info_var,
+        self.customer_info_var = tk.StringVar(value="No customer selected")
+        tk.Label(cust_frame, textvariable=self.customer_info_var,
                  font=ModernStyle.FONT_SMALL, fg=ModernStyle.ACCENT_BLUE,
-                 bg="white").pack(anchor=tk.W, pady=(10,0))
+                 bg="white").pack(anchor=tk.W, pady=(5,0))
 
-        # Project Description Card
-        desc_card = tk.Frame(main, bg="white", relief=tk.FLAT)
-        desc_card.pack(fill=tk.X, pady=(0,20))
-        inner_desc = tk.Frame(desc_card, bg="white")
-        inner_desc.pack(fill=tk.X, padx=20, pady=15)
+        # Project Description
+        desc_frame = tk.LabelFrame(main, text="Project Description", font=ModernStyle.FONT_TITLE,
+                                   bg="white", fg=ModernStyle.TEXT_PRIMARY,
+                                   padx=15, pady=15, relief=tk.GROOVE, bd=1)
+        desc_frame.pack(fill=tk.X, pady=(0,20))
 
-        tk.Label(inner_desc, text="📝 Project Description", font=ModernStyle.FONT_TITLE,
-                 fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(anchor=tk.W, pady=(0,10))
-
-        self.project_desc = tk.Text(inner_desc, height=5, font=ModernStyle.FONT_NORMAL,
-                                    relief=tk.FLAT, highlightthickness=1,
-                                    highlightbackground="#ddd")
+        self.project_desc = tk.Text(desc_frame, height=4, font=ModernStyle.FONT_NORMAL,
+                                    relief=tk.SUNKEN, bd=1)
         self.project_desc.pack(fill=tk.X)
-
-        examples = ("📌 EXAMPLES:\n"
-                    "• 5000 sqft factory wiring, 20 LED lights, 15 sockets, 2 fans, 3 phase MCB\n"
-                    "• 2 BHK flat wiring, 10 lights, 8 sockets, 4 fans, modular switches\n"
-                    "• 100m 25sqmm copper cable, 2 industrial MCB 63A, 1 distribution board")
-        tk.Label(inner_desc, text=examples, font=ModernStyle.FONT_SMALL,
-                 fg=ModernStyle.TEXT_SECONDARY, bg="white", justify=tk.LEFT).pack(pady=(10,0), anchor=tk.W)
 
         # Generate Button
         btn_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
         btn_frame.pack(pady=10)
         ModernButton(btn_frame, "⚡ GENERATE QUOTATION ⚡",
-                     self.generate_ai_quote, ModernStyle.ACCENT_GREEN, 280).pack()
+                     self.generate_ai_quote, ModernStyle.ACCENT_GREEN, width=250).pack()
 
         # Items Treeview
-        tree_card = tk.Frame(main, bg="white", relief=tk.FLAT)
-        tree_card.pack(fill=tk.BOTH, expand=True, pady=(0,10))
-        inner_tree = tk.Frame(tree_card, bg="white")
-        inner_tree.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
+        items_frame = tk.LabelFrame(main, text="Quotation Items", font=ModernStyle.FONT_TITLE,
+                                    bg="white", fg=ModernStyle.TEXT_PRIMARY,
+                                    padx=15, pady=15, relief=tk.GROOVE, bd=1)
+        items_frame.pack(fill=tk.BOTH, expand=True, pady=(0,10))
 
-        tk.Label(inner_tree, text="📋 Quotation Items", font=ModernStyle.FONT_TITLE,
-                 fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(anchor=tk.W, pady=(0,10))
-
-        # Treeview
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Treeview", background="white", foreground=ModernStyle.TEXT_PRIMARY,
-                        rowheight=28, fieldbackground="white", font=ModernStyle.FONT_NORMAL)
-        style.configure("Treeview.Heading", background=ModernStyle.BG_COLOR,
-                        foreground=ModernStyle.TEXT_PRIMARY, font=("SF Pro Text", 11, "bold"))
-        style.map("Treeview", background=[("selected", ModernStyle.ACCENT_BLUE)])
-
-        cols = ("Item", "Description", "Qty", "Unit", "Rate (Rs.)", "Amount (Rs.)", "GST%")
-        self.tree = ttk.Treeview(inner_tree, columns=cols, show="headings", height=6, style="Treeview")
-        widths = [120,250,60,70,100,110,60]
-        for col,w in zip(cols,widths):
+        columns = ("Item", "Description", "Qty", "Unit", "Rate (Rs.)", "Amount (Rs.)", "GST%")
+        self.tree = ttk.Treeview(items_frame, columns=columns, show="headings", height=6)
+        for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=w)
+            self.tree.column(col, width=100)
+        self.tree.column("Description", width=200)
+        self.tree.column("Item", width=120)
 
-        scroll = ttk.Scrollbar(inner_tree, orient="vertical", command=self.tree.yview)
+        scroll = ttk.Scrollbar(items_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scroll.set)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Totals Frame - ALAG SE
+        # Totals
         total_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
         total_frame.pack(fill=tk.X, pady=5)
-
-        total_card = tk.Frame(total_frame, bg="white", relief=tk.FLAT)
-        total_card.pack(fill=tk.X)
-        total_inner = tk.Frame(total_card, bg="white")
-        total_inner.pack(fill=tk.X, padx=20, pady=10)
 
         self.subtotal_var = tk.StringVar(value="Rs. 0.00")
         self.gst_var = tk.StringVar(value="Rs. 0.00")
         self.total_var = tk.StringVar(value="Rs. 0.00")
 
-        tk.Label(total_inner, text="SUBTOTAL:", font=ModernStyle.FONT_NORMAL,
-                 fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(side=tk.LEFT, padx=(0,5))
-        tk.Label(total_inner, textvariable=self.subtotal_var, font=ModernStyle.FONT_TITLE,
-                 fg=ModernStyle.ACCENT_GREEN, bg="white").pack(side=tk.LEFT, padx=(0,20))
+        tk.Label(total_frame, text="SUBTOTAL:", font=ModernStyle.FONT_NORMAL,
+                 fg=ModernStyle.TEXT_PRIMARY, bg=ModernStyle.BG_COLOR).pack(side=tk.LEFT, padx=(0,5))
+        tk.Label(total_frame, textvariable=self.subtotal_var, font=ModernStyle.FONT_TITLE,
+                 fg=ModernStyle.ACCENT_GREEN, bg=ModernStyle.BG_COLOR).pack(side=tk.LEFT, padx=(0,20))
 
-        tk.Label(total_inner, text="GST (18%):", font=ModernStyle.FONT_NORMAL,
-                 fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(side=tk.LEFT, padx=(0,5))
-        tk.Label(total_inner, textvariable=self.gst_var, font=ModernStyle.FONT_TITLE,
-                 fg=ModernStyle.ACCENT_ORANGE, bg="white").pack(side=tk.LEFT, padx=(0,20))
+        tk.Label(total_frame, text="GST (18%):", font=ModernStyle.FONT_NORMAL,
+                 fg=ModernStyle.TEXT_PRIMARY, bg=ModernStyle.BG_COLOR).pack(side=tk.LEFT, padx=(0,5))
+        tk.Label(total_frame, textvariable=self.gst_var, font=ModernStyle.FONT_TITLE,
+                 fg=ModernStyle.ACCENT_ORANGE, bg=ModernStyle.BG_COLOR).pack(side=tk.LEFT, padx=(0,20))
 
-        tk.Label(total_inner, text="GRAND TOTAL:", font=ModernStyle.FONT_NORMAL,
-                 fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(side=tk.LEFT, padx=(0,5))
-        tk.Label(total_inner, textvariable=self.total_var, font=ModernStyle.FONT_TITLE,
-                 fg=ModernStyle.ACCENT_RED, bg="white").pack(side=tk.LEFT)
+        tk.Label(total_frame, text="GRAND TOTAL:", font=ModernStyle.FONT_NORMAL,
+                 fg=ModernStyle.TEXT_PRIMARY, bg=ModernStyle.BG_COLOR).pack(side=tk.LEFT, padx=(0,5))
+        tk.Label(total_frame, textvariable=self.total_var, font=ModernStyle.FONT_TITLE,
+                 fg=ModernStyle.ACCENT_RED, bg=ModernStyle.BG_COLOR).pack(side=tk.LEFT)
 
         # Action Buttons
-        action_row = tk.Frame(main, bg=ModernStyle.BG_COLOR)
-        action_row.pack(fill=tk.X, pady=10)
+        action_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
+        action_frame.pack(fill=tk.X, pady=10)
 
-        ModernButton(action_row, "💾 Save Quotation", self.save_quotation,
-                     ModernStyle.ACCENT_BLUE, 140).pack(side=tk.LEFT, padx=5)
-        ModernButton(action_row, "📄 Generate PDF", self.generate_pdf,
-                     ModernStyle.ACCENT_ORANGE, 140).pack(side=tk.LEFT, padx=5)
-        ModernButton(action_row, "🔄 Reset All", self.clear_all,
-                     ModernStyle.TEXT_SECONDARY, 140).pack(side=tk.LEFT, padx=5)
-        ModernButton(action_row, "❌ Close", self.window.destroy,
-                     ModernStyle.TEXT_SECONDARY, 140).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_frame, "💾 Save Quotation", self.save_quotation,
+                     ModernStyle.ACCENT_BLUE).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_frame, "📄 Generate PDF", self.generate_pdf,
+                     ModernStyle.ACCENT_ORANGE).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_frame, "🔄 Reset All", self.clear_all,
+                     ModernStyle.TEXT_SECONDARY).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_frame, "❌ Close", self.window.destroy,
+                     ModernStyle.TEXT_SECONDARY).pack(side=tk.LEFT, padx=5)
 
         # Status Bar
-        self.status_var = tk.StringVar(value="✅ Ready. Select customer and describe project.")
+        self.status_var = tk.StringVar(value="Ready. Select customer and describe project.")
         tk.Label(main, textvariable=self.status_var, font=ModernStyle.FONT_SMALL,
                  fg=ModernStyle.TEXT_SECONDARY, bg=ModernStyle.BG_COLOR,
                  anchor=tk.W).pack(fill=tk.X, pady=(10,0))
@@ -263,10 +209,8 @@ class AIQuoteGenerator:
             cur.execute("SELECT name, default_rate, default_unit FROM materials")
             self.materials = cur.fetchall()
             conn.close()
-            self.material_dict = {m[0].lower(): (m[1], m[2]) for m in self.materials}
         except:
             self.materials = []
-            self.material_dict = {}
 
     def load_customers(self):
         try:
@@ -286,7 +230,7 @@ class AIQuoteGenerator:
                 }
             self.customer_combo['values'] = cust_list
         except Exception as e:
-            self.status_var.set(f"❌ Error loading customers")
+            self.status_var.set(f"Error loading customers")
 
     def on_customer_select(self, event):
         sel = self.customer_combo.get()
@@ -297,11 +241,11 @@ class AIQuoteGenerator:
             self.customer_phone = d['phone']
             self.customer_address = d['address']
             self.customer_gstin = d['gstin']
-            info = f"✓ {self.customer_name}"
-            if self.customer_phone: info += f" | 📞 {self.customer_phone}"
+            info = f"{self.customer_name}"
+            if self.customer_phone: info += f" | {self.customer_phone}"
             if self.customer_gstin: info += f" | GST: {self.customer_gstin}"
             self.customer_info_var.set(info)
-            self.status_var.set(f"✅ Customer: {self.customer_name}")
+            self.status_var.set(f"Customer: {self.customer_name}")
 
     def open_customer_window(self):
         try:
@@ -328,14 +272,14 @@ class AIQuoteGenerator:
                 item['quantity']+=qty
                 item['amount']=item['quantity']*rate
                 self.refresh_tree()
-                self.status_var.set(f"🔄 Updated {name} +{qty}")
+                self.status_var.set(f"Updated {name} +{qty}")
                 return
         amt = qty*rate
         self.items.append({'name':name,'description':desc,'quantity':qty,
                            'unit':unit,'rate':rate,'amount':amt})
         self.tree.insert("","end", values=(name[:20], desc[:30], qty, unit,
                                            f"Rs. {rate:,.2f}", f"Rs. {amt:,.2f}", "18%"))
-        self.status_var.set(f"✅ Added {name} x{qty}")
+        self.status_var.set(f"Added {name} x{qty}")
 
     def refresh_tree(self):
         for i in self.tree.get_children():
@@ -356,14 +300,14 @@ class AIQuoteGenerator:
 
     def generate_ai_quote(self):
         if not self.selected_customer_id:
-            messagebox.showwarning("Warning", "❌ Select a customer first")
+            messagebox.showwarning("Warning", "Select a customer first")
             return
         desc = self.project_desc.get("1.0", tk.END).strip()
         if not desc:
-            messagebox.showwarning("Warning", "❌ Enter project description")
+            messagebox.showwarning("Warning", "Enter project description")
             return
 
-        self.status_var.set("⏳ AI processing...")
+        self.status_var.set("AI processing...")
         self.window.update()
 
         for i in self.tree.get_children():
@@ -373,7 +317,7 @@ class AIQuoteGenerator:
         d = desc.lower()
         added = 0
 
-        # 1. Wires
+        # Wires
         if 'wire' in d or 'cable' in d:
             qty = self.extract_qty(d, ['wire','cable'])
             if qty>0:
@@ -383,21 +327,21 @@ class AIQuoteGenerator:
                     self.add_item("2.5 sq.mm Copper Wire", "Heavy duty", qty//2, "meter", 65.0)
                     added+=1
 
-        # 2. Lights
+        # Lights
         if 'light' in d or 'led' in d:
             qty = self.extract_qty(d, ['light','led'])
             if qty>0:
                 self.add_item("LED Panel Light 18W", "LED panel", qty, "piece", 450.0)
                 added+=1
 
-        # 3. Fans
+        # Fans
         if 'fan' in d:
             qty = self.extract_qty(d, ['fan'])
             if qty>0:
                 self.add_item("Ceiling Fan", "1200mm with regulator", qty, "piece", 1500.0)
                 added+=1
 
-        # 4. Sockets
+        # Sockets
         if 'socket' in d:
             qty = self.extract_qty(d, ['socket'])
             if qty>0:
@@ -405,7 +349,7 @@ class AIQuoteGenerator:
                 self.add_item("5A Socket", "switch socket", qty, "piece", 120.0)
                 added+=2
 
-        # 5. Switches
+        # Switches
         if 'switch' in d or 'modular' in d:
             qty = self.extract_qty(d, ['switch','modular'])
             if qty==0:
@@ -413,7 +357,7 @@ class AIQuoteGenerator:
             self.add_item("Modular Switch 1-Gang", "modular switch", qty, "piece", 180.0)
             added+=1
 
-        # 6. MCB / DB
+        # MCB / DB
         if 'mcb' in d or 'distribution' in d:
             self.add_item("6A MCB", "SP MCB", 4, "piece", 200.0)
             self.add_item("Distribution Box 8-way", "DB", 1, "piece", 800.0)
@@ -422,14 +366,14 @@ class AIQuoteGenerator:
                 self.add_item("Industrial MCB 63A", "3 phase MCB", 1, "piece", 850.0)
                 added+=1
 
-        # 7. Conduit
+        # Conduit
         if 'conduit' in d or 'pipe' in d:
             qty = self.extract_qty(d, ['conduit','pipe'])
             if qty>0:
                 self.add_item("20mm PVC Conduit", "conduit pipe", qty, "meter", 30.0)
                 added+=1
 
-        # 8. Labour
+        # Labour
         area = self.extract_qty(d, ['sqft','square'])
         if area>0:
             pts = max(5, area//150)
@@ -441,10 +385,10 @@ class AIQuoteGenerator:
         self.calc_totals()
 
         if added>0:
-            self.status_var.set(f"✅ AI generated {added} items")
+            self.status_var.set(f"AI generated {added} items")
             messagebox.showinfo("Success", f"{added} items generated\nSubtotal: {self.subtotal_var.get()}")
         else:
-            self.status_var.set("❌ No items matched – be more descriptive")
+            self.status_var.set("No items matched – be more descriptive")
 
     def save_quotation(self):
         if not self.selected_customer_id:
@@ -477,7 +421,7 @@ class AIQuoteGenerator:
                       it['unit'], it['rate'], it['amount']))
             conn.commit()
             conn.close()
-            self.status_var.set(f"✅ Quotation {qno} saved")
+            self.status_var.set(f"Quotation {qno} saved")
             messagebox.showinfo("Success", f"Quotation {qno} saved")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -505,11 +449,11 @@ class AIQuoteGenerator:
             }
             pdf = PDFGenerator()
             fname = f"quotation_ai_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            self.status_var.set("⏳ Generating PDF...")
+            self.status_var.set("Generating PDF...")
             self.window.update()
             ok = pdf.generate_quotation_pdf_from_dict(data, fname)
             if ok:
-                self.status_var.set(f"✅ PDF saved: {fname}")
+                self.status_var.set(f"PDF saved: {fname}")
                 if messagebox.askyesno("Open PDF", "Open PDF now?"):
                     os.startfile(fname)
             else:
@@ -528,11 +472,11 @@ class AIQuoteGenerator:
         self.customer_address = None
         self.customer_gstin = None
         self.customer_combo.set('')
-        self.customer_info_var.set("👤 No customer selected")
+        self.customer_info_var.set("No customer selected")
         self.subtotal_var.set("Rs. 0.00")
         self.gst_var.set("Rs. 0.00")
         self.total_var.set("Rs. 0.00")
-        self.status_var.set("✅ Reset complete")
+        self.status_var.set("Reset complete")
         self.load_customers()
 
 if __name__ == "__main__":

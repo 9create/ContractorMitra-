@@ -1,5 +1,7 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
+import os
+import sys
 
 class ModernStyle:
     BG_COLOR = "#f5f5f7"
@@ -18,59 +20,37 @@ class ModernStyle:
     FONT_NORMAL = ("SF Pro Text", 11)
     FONT_SMALL = ("SF Pro Text", 10)
 
-class ModernButton:
-    def __init__(self, parent, text, command, color=ModernStyle.ACCENT_BLUE, width=150, height=40):
-        self.frame = tk.Frame(parent, bg=ModernStyle.BG_COLOR)
-        self.canvas = tk.Canvas(self.frame, width=width, height=height, 
-                               highlightthickness=0, bg=ModernStyle.BG_COLOR)
-        self.canvas.pack()
-        self.command = command
-        self.color = color
-        self.text = text
-        self.width = width
-        self.height = height
-
-        # ✅ FIX: define rounded rect method inside canvas
-        def create_rounded_rect(x1, y1, x2, y2, r, **kwargs):
-            points = [x1+r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y2-r,
-                     x2, y2, x2-r, y2, x1+r, y2, x1, y2, x1, y2-r,
-                     x1, y1+r, x1, y1]
-            self.canvas.create_polygon(points, smooth=True, **kwargs)
-
-        self.canvas.create_rounded_rect = create_rounded_rect
-        self.draw_button(color)
-
-        self.canvas.bind("<Enter>", self.on_enter)
-        self.canvas.bind("<Leave>", self.on_leave)
-        self.canvas.bind("<Button-1>", self.on_click)
-
-    def draw_button(self, fill_color):
-        self.canvas.delete("all")
-        self.canvas.create_rounded_rect(2, 2, self.width-2, self.height-2, 8,
-                                       fill=fill_color, outline="")
-        self.canvas.create_text(self.width//2, self.height//2, text=self.text,
-                               fill="white", font=ModernStyle.FONT_SMALL)
+class ModernButton(tk.Button):
+    def __init__(self, parent, text, command, bg_color=ModernStyle.ACCENT_BLUE, **kwargs):
+        super().__init__(
+            parent,
+            text=text,
+            command=command,
+            font=ModernStyle.FONT_NORMAL,
+            bg=bg_color,
+            fg="white",
+            activebackground=self.darken(bg_color),
+            activeforeground="white",
+            relief=tk.FLAT,
+            bd=0,
+            padx=20,
+            pady=10,
+            cursor="hand2",
+            **kwargs
+        )
+        self.bind("<Enter>", self.on_enter)
+        self.bind("<Leave>", self.on_leave)
 
     def darken(self, color):
         color = color.lstrip('#')
         r,g,b = int(color[0:2],16), int(color[2:4],16), int(color[4:6],16)
         return f"#{max(0,r-20):02x}{max(0,g-20):02x}{max(0,b-20):02x}"
 
-    def on_enter(self, event):
-        self.draw_button(self.darken(self.color))
+    def on_enter(self, e):
+        self.config(bg=self.darken(self['bg']))
 
-    def on_leave(self, event):
-        self.draw_button(self.color)
-
-    def on_click(self, event):
-        if self.command:
-            self.command()
-
-    def pack(self, **kwargs):
-        self.frame.pack(**kwargs)
-
-    def grid(self, **kwargs):
-        self.frame.grid(**kwargs)
+    def on_leave(self, e):
+        self.config(bg=self['bg'])
 
 class MainWindow:
     def __init__(self):
@@ -102,9 +82,9 @@ class MainWindow:
                 fg=ModernStyle.TEXT_PRIMARY, bg=ModernStyle.BG_COLOR).pack()
 
         tk.Label(header,
-                text="Professional Quotation & Billing Software for Electrical & Civil Contractors",
+                text="Professional Quotation & Billing Software",
                 font=ModernStyle.FONT_NORMAL,
-                fg=ModernStyle.TEXT_SECONDARY, bg=ModernStyle.BG_COLOR).pack(pady=(10,0))
+                fg=ModernStyle.TEXT_SECONDARY, bg=ModernStyle.BG_COLOR).pack()
 
         # Cards Grid
         cards_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
@@ -116,11 +96,11 @@ class MainWindow:
         cards_frame.grid_rowconfigure(1, weight=1)
 
         cards = [
-            {"title": "📋 New Quotation", "desc": "Create professional quotations in seconds",
+            {"title": "📋 New Quotation", "desc": "Create professional quotations",
              "color": ModernStyle.ACCENT_BLUE, "cmd": self.new_quotation},
-            {"title": "👥 Customers", "desc": "Manage your customer database",
+            {"title": "👥 Customers", "desc": "Manage customer database",
              "color": ModernStyle.ACCENT_GREEN, "cmd": self.manage_customers},
-            {"title": "📦 Materials", "desc": "Track your material inventory",
+            {"title": "📦 Materials", "desc": "Track material inventory",
              "color": ModernStyle.ACCENT_ORANGE, "cmd": self.manage_materials},
             {"title": "📊 Reports", "desc": "View sales & payment reports",
              "color": ModernStyle.ACCENT_PURPLE, "cmd": self.view_reports},
@@ -160,49 +140,49 @@ class MainWindow:
                 fg=ModernStyle.TEXT_SECONDARY, bg="white",
                 wraplength=200, justify=tk.LEFT).pack(anchor=tk.W, pady=(0,20))
 
-        ModernButton(inner, "Open →", card["cmd"], card["color"], 150, 40).pack()
+        ModernButton(inner, "Open →", card["cmd"], card["color"]).pack()
 
     def new_quotation(self):
         try:
             from ai_quote_generator import AIQuoteGenerator
             AIQuoteGenerator(self.root)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open AI Quote Generator: {str(e)}")
+            messagebox.showerror("Error", str(e))
 
     def manage_customers(self):
         try:
             from customer_window import CustomerWindow
             CustomerWindow(self.root)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open Customer Window: {str(e)}")
+            messagebox.showerror("Error", str(e))
 
     def manage_materials(self):
         try:
             from material_window import MaterialWindow
             MaterialWindow(self.root)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open Material Window: {str(e)}")
+            messagebox.showerror("Error", str(e))
 
     def view_reports(self):
         try:
             from reports_window import ReportsWindow
             ReportsWindow(self.root)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open Reports: {str(e)}")
+            messagebox.showerror("Error", str(e))
 
     def pending_payments(self):
         try:
             from pending_window import PendingWindow
             PendingWindow(self.root)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open Pending Payments: {str(e)}")
+            messagebox.showerror("Error", str(e))
 
     def ai_quote(self):
         try:
             from ai_quote_generator import AIQuoteGenerator
             AIQuoteGenerator(self.root)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open AI Quote Generator: {str(e)}")
+            messagebox.showerror("Error", str(e))
 
     def run(self):
         self.root.mainloop()
