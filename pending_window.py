@@ -149,6 +149,25 @@ class PendingWindow:
         except Exception as e:
             print(f"Error loading payments: {e}")
     
+    def focus_next_widget(self, event):
+        event.widget.tk_focusNext().focus()
+        return 'break'
+    
+    def show_paste_menu(self, event):
+        widget = event.widget
+        menu = tk.Menu(self.window, tearoff=0)
+        menu.add_command(label="Paste", command=lambda: self.paste_text(widget))
+        menu.tk_popup(event.x_root, event.y_root)
+        menu.grab_release()
+        return 'break'
+    
+    def paste_text(self, widget):
+        try:
+            text = self.window.clipboard_get()
+            widget.insert(tk.INSERT, text)
+        except tk.TclError:
+            pass
+
     def on_search(self, *args):
         """Search payments"""
         search_term = self.search_var.get().lower()
@@ -156,7 +175,143 @@ class PendingWindow:
     
     def add_payment(self):
         """Add new payment"""
-        messagebox.showinfo("Coming Soon", "Add Payment feature will be implemented in next step!")
+        add_window = tk.Toplevel(self.window)
+        add_window.title("Add Payment - ContractorMitra")
+        add_window.geometry("500x550")
+        
+        tk.Label(add_window, text="ADD NEW PAYMENT", 
+                font=("Arial", 14, "bold"), fg="#2c3e50").pack(pady=(10, 20))
+        
+        form_frame = tk.Frame(add_window)
+        form_frame.pack(fill=tk.BOTH, expand=True, padx=30)
+        
+        # Customer selection
+        tk.Label(form_frame, text="Customer *").grid(row=0, column=0, padx=10, pady=10, sticky=tk.W)
+        
+        # Get customers from database
+        conn = sqlite3.connect('contractormitra.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name FROM customers ORDER BY name")
+        customers = cursor.fetchall()
+        conn.close()
+        
+        customer_names = [f"{c[0]} - {c[1]}" for c in customers]
+        customer_combo = ttk.Combobox(form_frame, values=customer_names, width=35)
+        customer_combo.grid(row=0, column=1, padx=10, pady=10, sticky=tk.W)
+        
+        # Quotation selection (optional)
+        tk.Label(form_frame, text="Quotation #").grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
+        quotation_entry = tk.Entry(form_frame, width=35)
+        quotation_entry.grid(row=1, column=1, padx=10, pady=10, sticky=tk.W)
+        
+        # Amount
+        tk.Label(form_frame, text="Amount (₹) *").grid(row=2, column=0, padx=10, pady=10, sticky=tk.W)
+        amount_entry = tk.Entry(form_frame, width=35)
+        amount_entry.grid(row=2, column=1, padx=10, pady=10, sticky=tk.W)
+        amount_entry.bind('<Tab>', self.focus_next_widget)
+        amount_entry.bind('<Button-3>', self.show_paste_menu)
+        
+        # Paid Amount
+        tk.Label(form_frame, text="Paid Amount (₹)").grid(row=3, column=0, padx=10, pady=10, sticky=tk.W)
+        paid_entry = tk.Entry(form_frame, width=35)
+        paid_entry.insert(0, "0")
+        paid_entry.grid(row=3, column=1, padx=10, pady=10, sticky=tk.W)
+        paid_entry.bind('<Tab>', self.focus_next_widget)
+        paid_entry.bind('<Button-3>', self.show_paste_menu)
+        
+        # Due Date
+        tk.Label(form_frame, text="Due Date *").grid(row=4, column=0, padx=10, pady=10, sticky=tk.W)
+        due_date_entry = tk.Entry(form_frame, width=35)
+        from datetime import datetime
+        due_date_entry.insert(0, datetime.now().strftime('%Y-%m-%d'))
+        due_date_entry.grid(row=4, column=1, padx=10, pady=10, sticky=tk.W)
+        due_date_entry.bind('<Tab>', self.focus_next_widget)
+        due_date_entry.bind('<Button-3>', self.show_paste_menu)
+        
+        # Reference No
+        tk.Label(form_frame, text="Reference No").grid(row=5, column=0, padx=10, pady=10, sticky=tk.W)
+        ref_entry = tk.Entry(form_frame, width=35)
+        ref_entry.grid(row=5, column=1, padx=10, pady=10, sticky=tk.W)
+        ref_entry.bind('<Tab>', self.focus_next_widget)
+        ref_entry.bind('<Button-3>', self.show_paste_menu)
+        
+        # Remarks
+        tk.Label(form_frame, text="Remarks").grid(row=6, column=0, padx=10, pady=10, sticky=tk.W)
+        remarks_entry = tk.Entry(form_frame, width=35)
+        remarks_entry.grid(row=6, column=1, padx=10, pady=10, sticky=tk.W)
+        remarks_entry.bind('<Tab>', self.focus_next_widget)
+        remarks_entry.bind('<Button-3>', self.show_paste_menu)
+        
+        def save_payment():
+            # Validation
+            if not customer_combo.get():
+                messagebox.showerror("Error", "Please select a customer")
+                return
+            
+            try:
+                amount = float(amount_entry.get() or 0)
+                if amount <= 0:
+                    messagebox.showerror("Error", "Amount must be greater than 0")
+                    return
+            except ValueError:
+                messagebox.showerror("Error", "Invalid amount")
+                return
+            
+            try:
+                paid_amount = float(paid_entry.get() or 0)
+            except ValueError:
+                paid_amount = 0
+            
+            if not due_date_entry.get():
+                messagebox.showerror("Error", "Please enter due date")
+                return
+            
+            # Extract customer ID
+            customer_id = int(customer_combo.get().split(' - ')[0])
+            
+            # Calculate pending amount
+            pending_amount = amount - paid_amount
+            status = 'paid' if pending_amount <= 0 else 'partial' if paid_amount > 0 else 'pending'
+            
+            try:
+                conn = sqlite3.connect('contractormitra.db')
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    INSERT INTO payments (customer_id, quotation_id, amount, paid_amount, pending_amount, 
+                                        due_date, status, reference_no, remarks)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    customer_id,
+                    quotation_entry.get() or None,
+                    amount,
+                    paid_amount,
+                    pending_amount,
+                    due_date_entry.get(),
+                    status,
+                    ref_entry.get() or None,
+                    remarks_entry.get() or None
+                ))
+                
+                conn.commit()
+                conn.close()
+                
+                messagebox.showinfo("Success", "Payment added successfully!")
+                add_window.destroy()
+                self.load_payments()
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save payment: {str(e)}")
+        
+        # Buttons
+        button_frame = tk.Frame(add_window)
+        button_frame.pack(pady=20)
+        
+        tk.Button(button_frame, text="Save Payment", command=save_payment,
+                 bg="#27ae60", fg="white", width=15).pack(side=tk.LEFT, padx=10)
+        
+        tk.Button(button_frame, text="Cancel", command=add_window.destroy,
+                 bg="#95a5a6", fg="white", width=15).pack(side=tk.LEFT, padx=10)
     
     def mark_as_paid(self):
         """Mark selected payment as paid"""
