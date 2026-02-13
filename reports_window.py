@@ -1,28 +1,36 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import sqlite3
 from datetime import datetime, timedelta
-import calendar
+import pandas as pd
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 
 class ReportsWindow:
     def __init__(self, parent):
         self.parent = parent
         self.window = tk.Toplevel(parent)
-        self.window.title("Reports - ContractorMitra")
-        self.window.geometry("1100x700")
+        self.window.title("Reports Dashboard - ContractorMitra")
+        self.window.geometry("1200x700")
         
         # Variables
         self.report_type = tk.StringVar(value="sales")
         self.date_from = tk.StringVar()
         self.date_to = tk.StringVar()
         
-        # Set default dates (current month)
+        # Set default dates
         today = datetime.now()
         first_day = today.replace(day=1)
         self.date_from.set(first_day.strftime("%Y-%m-%d"))
         self.date_to.set(today.strftime("%Y-%m-%d"))
         
-        # Initialize
+        # Data storage
+        self.current_data = []
+        self.current_columns = []
+        
         self.setup_ui()
     
     def setup_ui(self):
@@ -32,16 +40,19 @@ class ReportsWindow:
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Header
-        tk.Label(main_frame, text="REPORTS DASHBOARD", 
-                font=("Arial", 18, "bold"), fg="#2c3e50").pack(pady=(0, 20))
+        tk.Label(main_frame, text="📊 REPORTS DASHBOARD", 
+                font=("Arial", 20, "bold"), fg="#2c3e50").pack(pady=(0, 20))
         
-        # Report type selection frame
-        type_frame = tk.LabelFrame(main_frame, text="Select Report Type", font=("Arial", 12, "bold"))
-        type_frame.pack(fill=tk.X, pady=(0, 20))
+        # Control Panel
+        control_panel = tk.Frame(main_frame, relief=tk.GROOVE, bd=2, bg="#f8f9fa")
+        control_panel.pack(fill=tk.X, pady=(0, 20))
         
-        # Report type buttons
-        types_frame = tk.Frame(type_frame)
-        types_frame.pack(padx=10, pady=10)
+        # Report Type Section
+        type_frame = tk.Frame(control_panel, bg="#f8f9fa")
+        type_frame.pack(pady=10)
+        
+        tk.Label(type_frame, text="📋 Select Report:", font=("Arial", 11, "bold"), 
+                bg="#f8f9fa").pack(side=tk.LEFT, padx=(10, 20))
         
         reports = [
             ("💰 Sales Report", "sales", "#3498db"),
@@ -52,26 +63,28 @@ class ReportsWindow:
         ]
         
         for text, value, color in reports:
-            rb = tk.Radiobutton(types_frame, text=text, variable=self.report_type, 
-                              value=value, font=("Arial", 10), bg="#f8f9fa")
-            rb.pack(side=tk.LEFT, padx=5, pady=5)
+            rb = tk.Radiobutton(type_frame, text=text, variable=self.report_type, 
+                              value=value, font=("Arial", 10), bg="#f8f9fa",
+                              command=self.on_report_change)
+            rb.pack(side=tk.LEFT, padx=5)
         
-        # Date range frame
-        date_frame = tk.LabelFrame(main_frame, text="Select Date Range", font=("Arial", 12, "bold"))
-        date_frame.pack(fill=tk.X, pady=(0, 20))
+        # Date Range Section
+        date_frame = tk.Frame(control_panel, bg="#f8f9fa")
+        date_frame.pack(pady=10)
         
-        date_inner = tk.Frame(date_frame)
-        date_inner.pack(padx=10, pady=10)
+        tk.Label(date_frame, text="📅 From:", font=("Arial", 10, "bold"), 
+                bg="#f8f9fa").pack(side=tk.LEFT, padx=(10, 5))
+        tk.Entry(date_frame, textvariable=self.date_from, width=12, 
+                font=("Arial", 10)).pack(side=tk.LEFT, padx=5)
         
-        tk.Label(date_inner, text="From:").grid(row=0, column=0, padx=5, pady=5)
-        tk.Entry(date_inner, textvariable=self.date_from, width=15).grid(row=0, column=1, padx=5, pady=5)
+        tk.Label(date_frame, text="To:", font=("Arial", 10, "bold"), 
+                bg="#f8f9fa").pack(side=tk.LEFT, padx=(10, 5))
+        tk.Entry(date_frame, textvariable=self.date_to, width=12, 
+                font=("Arial", 10)).pack(side=tk.LEFT, padx=5)
         
-        tk.Label(date_inner, text="To:").grid(row=0, column=2, padx=5, pady=5)
-        tk.Entry(date_inner, textvariable=self.date_to, width=15).grid(row=0, column=3, padx=5, pady=5)
-        
-        # Quick date buttons
-        quick_frame = tk.Frame(date_inner)
-        quick_frame.grid(row=1, column=0, columnspan=4, pady=10)
+        # Quick Date Buttons
+        quick_frame = tk.Frame(control_panel, bg="#f8f9fa")
+        quick_frame.pack(pady=10)
         
         quick_periods = [
             ("Today", 0),
@@ -84,64 +97,66 @@ class ReportsWindow:
         for text, days in quick_periods:
             tk.Button(quick_frame, text=text, width=12,
                      command=lambda d=days: self.set_quick_date(d),
-                     bg="#95a5a6", fg="white").pack(side=tk.LEFT, padx=2)
+                     bg="#34495e", fg="white", font=("Arial", 9)).pack(side=tk.LEFT, padx=2)
         
-        # Generate button
-        tk.Button(main_frame, text="🔍 Generate Report", 
-                 command=self.generate_report, bg="#27ae60", fg="white",
-                 font=("Arial", 11, "bold"), height=2, width=20).pack(pady=10)
+        # Generate Button
+        tk.Button(control_panel, text="🔍 GENERATE REPORT", 
+                 command=self.generate_report,
+                 bg="#27ae60", fg="white", font=("Arial", 12, "bold"),
+                 height=2, width=25).pack(pady=15)
         
-        # Results frame
-        results_frame = tk.LabelFrame(main_frame, text="Report Results", font=("Arial", 12, "bold"))
+        # Results Frame
+        results_frame = tk.LabelFrame(main_frame, text="📑 Report Results", 
+                                     font=("Arial", 12, "bold"))
         results_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
-        # Create Treeview for results
-        self.tree = ttk.Treeview(results_frame, height=15)
+        # Treeview Frame
+        tree_frame = tk.Frame(results_frame)
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Treeview
+        self.tree = ttk.Treeview(tree_frame, height=15)
         
         # Scrollbars
-        v_scroll = ttk.Scrollbar(results_frame, orient="vertical", command=self.tree.yview)
-        h_scroll = ttk.Scrollbar(results_frame, orient="horizontal", command=self.tree.xview)
+        v_scroll = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
+        h_scroll = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
         
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+        # Grid layout for tree and scrollbars
+        self.tree.grid(row=0, column=0, sticky='nsew')
+        v_scroll.grid(row=0, column=1, sticky='ns')
+        h_scroll.grid(row=1, column=0, sticky='ew')
         
-        # Summary frame
-        self.summary_frame = tk.Frame(main_frame, bg="#f8f9fa", relief=tk.RIDGE, borderwidth=2)
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+        
+        # Summary Frame
+        self.summary_frame = tk.Frame(main_frame, bg="#f0f0f0", relief=tk.RIDGE, bd=2)
         self.summary_frame.pack(fill=tk.X, pady=(0, 10))
         
-        # Export buttons
+        # Export Frame
         export_frame = tk.Frame(main_frame)
         export_frame.pack()
         
-        tk.Button(export_frame, text="📄 Export to Excel", 
-                 command=self.export_excel, bg="#3498db", fg="white", width=15).pack(side=tk.LEFT, padx=5)
+        tk.Button(export_frame, text="📊 Export to Excel", 
+                 command=self.export_excel,
+                 bg="#3498db", fg="white", width=15, font=("Arial", 10)).pack(side=tk.LEFT, padx=5)
         
-        tk.Button(export_frame, text="🖨️ Print Report", 
-                 command=self.print_report, bg="#f39c12", fg="white", width=15).pack(side=tk.LEFT, padx=5)
+        tk.Button(export_frame, text="📄 Export to PDF", 
+                 command=self.export_pdf,
+                 bg="#e67e22", fg="white", width=15, font=("Arial", 10)).pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(export_frame, text="🖨️ Print", 
+                 command=self.print_report,
+                 bg="#95a5a6", fg="white", width=15, font=("Arial", 10)).pack(side=tk.LEFT, padx=5)
         
         tk.Button(export_frame, text="❌ Close", 
-                 command=self.window.destroy, bg="#95a5a6", fg="white", width=15).pack(side=tk.LEFT, padx=5)
+                 command=self.window.destroy,
+                 bg="#e74c3c", fg="white", width=15, font=("Arial", 10)).pack(side=tk.LEFT, padx=5)
     
-    def parse_currency(self, value):
-        """Convert currency string to float"""
-        if value is None:
-            return 0.0
-        
-        try:
-            # Convert to string and clean
-            str_value = str(value)
-            # Remove currency symbols, commas, spaces
-            cleaned = str_value.replace('₹', '').replace(',', '').replace(' ', '').strip()
-            
-            # If empty after cleaning, return 0
-            if not cleaned:
-                return 0.0
-                
-            return float(cleaned)
-        except ValueError:
-            return 0.0
+    def on_report_change(self):
+        """Handle report type change"""
+        self.generate_report()
     
     def set_quick_date(self, days):
         """Set quick date range"""
@@ -165,17 +180,29 @@ class ReportsWindow:
             from_date = today - timedelta(days=days)
             self.date_from.set(from_date.strftime("%Y-%m-%d"))
     
+    def parse_currency(self, value):
+        """Convert currency string to float"""
+        if not value:
+            return 0.0
+        try:
+            if isinstance(value, (int, float)):
+                return float(value)
+            return float(str(value).replace('₹', '').replace(',', '').replace(' ', ''))
+        except:
+            return 0.0
+    
     def generate_report(self):
         """Generate selected report"""
-        report_type = self.report_type.get()
-        
         # Clear previous results
         for item in self.tree.get_children():
             self.tree.delete(item)
-        
-        # Clear summary
         for widget in self.summary_frame.winfo_children():
             widget.destroy()
+        
+        self.current_data = []
+        self.current_columns = []
+        
+        report_type = self.report_type.get()
         
         try:
             if report_type == "sales":
@@ -188,7 +215,6 @@ class ReportsWindow:
                 self.generate_material_report()
             elif report_type == "monthly":
                 self.generate_monthly_report()
-                
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate report: {str(e)}")
     
@@ -200,104 +226,98 @@ class ReportsWindow:
         conn = sqlite3.connect('contractormitra.db')
         cursor = conn.cursor()
         
-        # Get sales data
         cursor.execute('''
             SELECT q.quote_no, q.date, c.name, q.subtotal, q.gst_amount, q.grand_total, q.status
             FROM quotations q
             LEFT JOIN customers c ON q.customer_id = c.id
-            WHERE q.date BETWEEN ? AND ?
+            WHERE q.date BETWEEN ? AND ? AND q.status NOT IN ('Cancelled')
             ORDER BY q.date DESC
         ''', (date_from, date_to))
         
-        sales = cursor.fetchall()
+        data = cursor.fetchall()
+        conn.close()
         
         # Set columns
         columns = ("Quotation No", "Date", "Customer", "Subtotal (₹)", "GST (₹)", "Total (₹)", "Status")
-        self.tree['columns'] = columns
-        self.tree['show'] = 'headings'
+        self.setup_treeview(columns)
         
-        for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=100)
+        total_sales = 0
+        total_gst = 0
+        total_subtotal = 0
         
-        self.tree.column("Customer", width=150)
-        self.tree.column("Quotation No", width=120)
+        for row in data:
+            self.tree.insert("", "end", values=row)
+            self.current_data.append(row)
+            total_subtotal += self.parse_currency(row[3])
+            total_gst += self.parse_currency(row[4])
+            total_sales += self.parse_currency(row[5])
         
-        # Add data
-        total_sales = 0.0
-        total_gst = 0.0
+        # Summary
+        summary_text = f"📊 SALES REPORT SUMMARY\n"
+        summary_text += f"Period: {date_from} to {date_to}\n"
+        summary_text += f"Total Invoices: {len(data)}\n"
+        summary_text += f"Total Subtotal: ₹ {total_subtotal:,.2f}\n"
+        summary_text += f"Total GST: ₹ {total_gst:,.2f}\n"
+        summary_text += f"Total Sales: ₹ {total_sales:,.2f}"
         
-        for sale in sales:
-            self.tree.insert("", "end", values=sale)
-            
-            # FIXED: Use parse_currency to convert strings to float
-            total_sales += self.parse_currency(sale[5])  # grand_total at index 5
-            total_gst += self.parse_currency(sale[4])    # gst_amount at index 4
-        
-        conn.close()
-        
-        # Show summary
-        tk.Label(self.summary_frame, text=f"📊 SALES REPORT SUMMARY", 
-                font=("Arial", 12, "bold")).pack(pady=5)
-        
-        tk.Label(self.summary_frame, 
-                text=f"Period: {date_from} to {date_to} | Total Invoices: {len(sales)} | " +
-                     f"Total Sales: ₹ {total_sales:,.2f} | Total GST: ₹ {total_gst:,.2f}",
-                font=("Arial", 10)).pack()
+        tk.Label(self.summary_frame, text=summary_text, font=("Arial", 11),
+                justify=tk.LEFT, bg="#f0f0f0").pack(pady=10)
     
     def generate_pending_report(self):
         """Generate pending payments report"""
         conn = sqlite3.connect('contractormitra.db')
         cursor = conn.cursor()
         
-        # Get pending payments (draft/sent quotations)
         cursor.execute('''
-            SELECT q.quote_no, q.date, c.name, q.grand_total, q.status
+            SELECT q.quote_no, q.date, c.name, q.grand_total, 
+                   julianday('now') - julianday(q.date) as days_pending
             FROM quotations q
             LEFT JOIN customers c ON q.customer_id = c.id
-            WHERE q.status IN ('Draft', 'Sent')
-            ORDER BY q.grand_total DESC
+            WHERE q.status IN ('Sent', 'Draft')
+            ORDER BY q.date ASC
         ''')
         
-        pending = cursor.fetchall()
-        
-        # Set columns
-        columns = ("Quotation No", "Date", "Customer", "Amount (₹)", "Status")
-        self.tree['columns'] = columns
-        self.tree['show'] = 'headings'
-        
-        for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=100)
-        
-        self.tree.column("Customer", width=150)
-        
-        # Add data
-        total_pending = 0.0
-        for item in pending:
-            self.tree.insert("", "end", values=item)
-            total_pending += self.parse_currency(item[3])  # FIXED: Use parse_currency
-        
+        data = cursor.fetchall()
         conn.close()
         
-        # Show summary
-        tk.Label(self.summary_frame, text=f"💰 PENDING PAYMENTS REPORT", 
-                font=("Arial", 12, "bold")).pack(pady=5)
+        columns = ("Quotation No", "Date", "Customer", "Amount (₹)", "Days Pending")
+        self.setup_treeview(columns)
         
-        tk.Label(self.summary_frame, 
-                text=f"Total Pending Invoices: {len(pending)} | " +
-                     f"Total Pending Amount: ₹ {total_pending:,.2f}",
-                font=("Arial", 10)).pack()
+        total_pending = 0
+        overdue_count = 0
+        total_overdue = 0
+        
+        for row in data:
+            days = int(row[4]) if row[4] else 0
+            values = (row[0], row[1], row[2], f"₹ {self.parse_currency(row[3]):,.2f}", f"{days} days")
+            self.tree.insert("", "end", values=values)
+            self.current_data.append(row)
+            
+            amount = self.parse_currency(row[3])
+            total_pending += amount
+            
+            if days > 30:
+                overdue_count += 1
+                total_overdue += amount
+        
+        summary_text = f"💰 PENDING PAYMENTS REPORT\n"
+        summary_text += f"Total Pending Invoices: {len(data)}\n"
+        summary_text += f"Total Pending Amount: ₹ {total_pending:,.2f}\n"
+        summary_text += f"Overdue (>30 days): {overdue_count} invoices\n"
+        summary_text += f"Overdue Amount: ₹ {total_overdue:,.2f}"
+        
+        tk.Label(self.summary_frame, text=summary_text, font=("Arial", 11),
+                justify=tk.LEFT, bg="#f0f0f0").pack(pady=10)
     
     def generate_customer_report(self):
         """Generate customer report"""
         conn = sqlite3.connect('contractormitra.db')
         cursor = conn.cursor()
         
-        # Get customer data with sales summary
         cursor.execute('''
-            SELECT c.name, c.phone, COUNT(q.id) as invoice_count, 
-                   SUM(q.grand_total) as total_spent,
+            SELECT c.name, c.phone, c.email,
+                   COUNT(q.id) as invoice_count,
+                   COALESCE(SUM(q.grand_total), 0) as total_spent,
                    MAX(q.date) as last_purchase
             FROM customers c
             LEFT JOIN quotations q ON c.id = q.customer_id
@@ -305,38 +325,38 @@ class ReportsWindow:
             ORDER BY total_spent DESC
         ''')
         
-        customers = cursor.fetchall()
-        
-        # Set columns
-        columns = ("Customer Name", "Phone", "Total Invoices", "Total Spent (₹)", "Last Purchase")
-        self.tree['columns'] = columns
-        self.tree['show'] = 'headings'
-        
-        for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=100)
-        
-        self.tree.column("Customer Name", width=150)
-        
-        # Add data
-        total_customers = len(customers)
-        total_revenue = 0.0
-        for cust in customers:
-            self.tree.insert("", "end", values=cust)
-            total_revenue += self.parse_currency(cust[3])  # FIXED: Use parse_currency
-        
+        data = cursor.fetchall()
         conn.close()
         
-        # Show summary
-        tk.Label(self.summary_frame, text=f"👥 CUSTOMER REPORT", 
-                font=("Arial", 12, "bold")).pack(pady=5)
+        columns = ("Customer Name", "Phone", "Email", "Invoices", "Total Spent (₹)", "Last Purchase")
+        self.setup_treeview(columns)
         
-        avg_revenue = total_revenue / max(total_customers, 1)
-        tk.Label(self.summary_frame, 
-                text=f"Total Customers: {total_customers} | " +
-                     f"Total Revenue: ₹ {total_revenue:,.2f} | " +
-                     f"Avg per Customer: ₹ {avg_revenue:,.2f}",
-                font=("Arial", 10)).pack()
+        total_customers = len(data)
+        total_revenue = 0
+        active_customers = 0
+        today = datetime.now().date()
+        
+        for row in data:
+            self.tree.insert("", "end", values=row)
+            self.current_data.append(row)
+            total_revenue += self.parse_currency(row[4])
+            
+            # Active in last 30 days
+            if row[5]:
+                last_date = datetime.strptime(row[5], '%Y-%m-%d').date()
+                if (today - last_date).days <= 30:
+                    active_customers += 1
+        
+        avg_revenue = total_revenue / total_customers if total_customers > 0 else 0
+        
+        summary_text = f"👥 CUSTOMER REPORT\n"
+        summary_text += f"Total Customers: {total_customers}\n"
+        summary_text += f"Active (30 days): {active_customers}\n"
+        summary_text += f"Total Revenue: ₹ {total_revenue:,.2f}\n"
+        summary_text += f"Average per Customer: ₹ {avg_revenue:,.2f}"
+        
+        tk.Label(self.summary_frame, text=summary_text, font=("Arial", 11),
+                justify=tk.LEFT, bg="#f0f0f0").pack(pady=10)
     
     def generate_material_report(self):
         """Generate material consumption report"""
@@ -346,111 +366,202 @@ class ReportsWindow:
         conn = sqlite3.connect('contractormitra.db')
         cursor = conn.cursor()
         
-        # Get material consumption
         cursor.execute('''
             SELECT qi.item_name, qi.unit, 
-                   SUM(qi.quantity) as total_quantity,
-                   SUM(qi.amount) as total_amount
+                   SUM(qi.quantity) as total_qty,
+                   SUM(qi.amount) as total_amount,
+                   COUNT(DISTINCT q.id) as usage_count
             FROM quotation_items qi
             JOIN quotations q ON qi.quotation_id = q.id
             WHERE q.date BETWEEN ? AND ?
             GROUP BY qi.item_name, qi.unit
-            ORDER BY total_quantity DESC
+            ORDER BY total_qty DESC
         ''', (date_from, date_to))
         
-        materials = cursor.fetchall()
-        
-        # Set columns
-        columns = ("Material Name", "Unit", "Total Quantity", "Total Amount (₹)")
-        self.tree['columns'] = columns
-        self.tree['show'] = 'headings'
-        
-        for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=100)
-        
-        self.tree.column("Material Name", width=200)
-        
-        # Add data
-        total_items = 0.0
-        total_value = 0.0
-        for mat in materials:
-            self.tree.insert("", "end", values=mat)
-            total_items += self.parse_currency(mat[2])  # FIXED: Use parse_currency for quantity
-            total_value += self.parse_currency(mat[3])  # FIXED: Use parse_currency for amount
-        
+        data = cursor.fetchall()
         conn.close()
         
-        # Show summary
-        tk.Label(self.summary_frame, text=f"📦 MATERIAL CONSUMPTION REPORT", 
-                font=("Arial", 12, "bold")).pack(pady=5)
+        columns = ("Material Name", "Unit", "Quantity", "Total Value (₹)", "Used In (Quotations)")
+        self.setup_treeview(columns)
         
-        tk.Label(self.summary_frame, 
-                text=f"Period: {date_from} to {date_to} | " +
-                     f"Unique Materials: {len(materials)} | " +
-                     f"Total Quantity: {total_items:,.2f} | " +
-                     f"Total Value: ₹ {total_value:,.2f}",
-                font=("Arial", 10)).pack()
+        total_qty = 0
+        total_value = 0
+        unique_materials = len(data)
+        
+        for row in data:
+            self.tree.insert("", "end", values=row)
+            self.current_data.append(row)
+            total_qty += self.parse_currency(row[2])
+            total_value += self.parse_currency(row[3])
+        
+        summary_text = f"📦 MATERIAL CONSUMPTION REPORT\n"
+        summary_text += f"Period: {date_from} to {date_to}\n"
+        summary_text += f"Unique Materials: {unique_materials}\n"
+        summary_text += f"Total Quantity: {total_qty:,.2f}\n"
+        summary_text += f"Total Value: ₹ {total_value:,.2f}\n"
+        summary_text += f"Average Value per Unit: ₹ {total_value/total_qty:,.2f}" if total_qty > 0 else ""
+        
+        tk.Label(self.summary_frame, text=summary_text, font=("Arial", 11),
+                justify=tk.LEFT, bg="#f0f0f0").pack(pady=10)
     
     def generate_monthly_report(self):
         """Generate monthly summary report"""
+        year = datetime.now().year
+        
         conn = sqlite3.connect('contractormitra.db')
         cursor = conn.cursor()
         
-        # Get monthly sales data
         cursor.execute('''
             SELECT strftime('%Y-%m', date) as month,
-                   COUNT(*) as invoice_count,
-                   SUM(grand_total) as total_sales,
-                   SUM(gst_amount) as total_gst
+                   COUNT(*) as invoices,
+                   COALESCE(SUM(grand_total), 0) as sales,
+                   COALESCE(SUM(gst_amount), 0) as gst
             FROM quotations
+            WHERE strftime('%Y', date) = ?
             GROUP BY strftime('%Y-%m', date)
             ORDER BY month DESC
-        ''')
+        ''', (str(year),))
         
-        monthly = cursor.fetchall()
+        data = cursor.fetchall()
+        conn.close()
         
-        # Set columns
-        columns = ("Month", "Invoices", "Total Sales (₹)", "GST (₹)", "Net (₹)")
+        columns = ("Month", "Invoices", "Sales (₹)", "GST (₹)", "Net (₹)", "Avg per Invoice")
+        self.setup_treeview(columns)
+        
+        total_invoices = 0
+        total_sales = 0
+        total_gst = 0
+        best_month = {"sales": 0, "month": ""}
+        
+        for row in data:
+            month, invoices, sales, gst = row
+            sales_float = self.parse_currency(sales)
+            gst_float = self.parse_currency(gst)
+            net = sales_float - gst_float
+            avg = sales_float / invoices if invoices > 0 else 0
+            
+            values = (month, invoices, f"₹ {sales_float:,.2f}", 
+                     f"₹ {gst_float:,.2f}", f"₹ {net:,.2f}", f"₹ {avg:,.2f}")
+            self.tree.insert("", "end", values=values)
+            self.current_data.append(row)
+            
+            total_invoices += invoices
+            total_sales += sales_float
+            total_gst += gst_float
+            
+            if sales_float > best_month["sales"]:
+                best_month = {"month": month, "sales": sales_float}
+        
+        summary_text = f"📈 MONTHLY SUMMARY REPORT - {year}\n"
+        summary_text += f"Total Months: {len(data)}\n"
+        summary_text += f"Total Invoices: {total_invoices}\n"
+        summary_text += f"Total Sales: ₹ {total_sales:,.2f}\n"
+        summary_text += f"Total GST: ₹ {total_gst:,.2f}\n"
+        summary_text += f"Best Month: {best_month['month']} (₹ {best_month['sales']:,.2f})\n"
+        summary_text += f"Monthly Average: ₹ {total_sales/len(data):,.2f}" if data else ""
+        
+        tk.Label(self.summary_frame, text=summary_text, font=("Arial", 11),
+                justify=tk.LEFT, bg="#f0f0f0").pack(pady=10)
+    
+    def setup_treeview(self, columns):
+        """Setup treeview columns"""
+        self.current_columns = columns
         self.tree['columns'] = columns
         self.tree['show'] = 'headings'
         
         for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=100)
-        
-        # Add data
-        total_invoices = 0
-        total_sales = 0.0
-        total_gst = 0.0
-        
-        for month_data in monthly:
-            month, invoices, sales, gst = month_data
-            net = self.parse_currency(sales) - self.parse_currency(gst)
-            self.tree.insert("", "end", values=(month, invoices, sales, gst, net))
-            
-            total_invoices += invoices if invoices else 0
-            total_sales += self.parse_currency(sales)
-            total_gst += self.parse_currency(gst)
-        
-        conn.close()
-        
-        # Show summary
-        tk.Label(self.summary_frame, text=f"📈 MONTHLY SUMMARY REPORT", 
-                font=("Arial", 12, "bold")).pack(pady=5)
-        
-        avg_monthly = total_sales / max(len(monthly), 1)
-        tk.Label(self.summary_frame, 
-                text=f"Total Months: {len(monthly)} | " +
-                     f"Total Invoices: {total_invoices} | " +
-                     f"Total Sales: ₹ {total_sales:,.2f} | " +
-                     f"Avg Monthly: ₹ {avg_monthly:,.2f}",
-                font=("Arial", 10)).pack()
+            self.tree.column(col, width=120)
     
     def export_excel(self):
         """Export report to Excel"""
-        messagebox.showinfo("Info", "Excel export will be implemented in next version")
+        if not self.current_data:
+            messagebox.showwarning("Warning", "No data to export. Generate a report first.")
+            return
+        
+        try:
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                initialfile=f"report_{self.report_type.get()}_{datetime.now().strftime('%Y%m%d')}"
+            )
+            
+            if filename:
+                df = pd.DataFrame(self.current_data, columns=self.current_columns)
+                df.to_excel(filename, index=False)
+                messagebox.showinfo("Success", f"Report exported to:\n{filename}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to export: {str(e)}")
+    
+    def export_pdf(self):
+        """Export report to PDF"""
+        if not self.current_data:
+            messagebox.showwarning("Warning", "No data to export. Generate a report first.")
+            return
+        
+        try:
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+                initialfile=f"report_{self.report_type.get()}_{datetime.now().strftime('%Y%m%d')}"
+            )
+            
+            if filename:
+                doc = SimpleDocTemplate(filename, pagesize=landscape(A4))
+                story = []
+                
+                # Title
+                styles = getSampleStyleSheet()
+                title_style = ParagraphStyle(
+                    'CustomTitle',
+                    parent=styles['Heading1'],
+                    fontSize=16,
+                    spaceAfter=30
+                )
+                
+                title = Paragraph(f"ContractorMitra - {self.report_type.get().title()} Report", title_style)
+                story.append(title)
+                
+                # Date
+                date_style = ParagraphStyle('DateStyle', parent=styles['Normal'], fontSize=10)
+                date_text = Paragraph(f"Generated on: {datetime.now().strftime('%d-%b-%Y %H:%M')}", date_style)
+                story.append(date_text)
+                story.append(Spacer(1, 20))
+                
+                # Table
+                table_data = [self.current_columns]
+                for row in self.current_data[:100]:  # Limit to 100 rows
+                    table_data.append([str(cell) for cell in row])
+                
+                table = Table(table_data)
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ]))
+                
+                story.append(table)
+                doc.build(story)
+                
+                messagebox.showinfo("Success", f"Report exported to:\n{filename}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to export PDF: {str(e)}")
     
     def print_report(self):
         """Print report"""
-        messagebox.showinfo("Info", "Print functionality will be implemented in next version")
+        self.export_pdf()  # For now, just export to PDF
+        messagebox.showinfo("Info", "Please use PDF export and print from your PDF viewer.")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.withdraw()
+    app = ReportsWindow(root)
+    root.mainloop()
