@@ -1,4 +1,9 @@
-# pdf_generator.py
+"""
+PDF GENERATOR - ContractorMitra
+Professional PDF generation for quotations, invoices and reports
+Version: 2.0.0 (AI Quote Generator Ready)
+"""
+
 import os
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, letter
@@ -35,9 +40,10 @@ class PDFGenerator:
         self.styles.add(ParagraphStyle(
             name='NormalCenter',
             parent=self.styles['Normal'],
-            alignment=1,  # Center alignment
+            alignment=1,
             fontSize=10
         ))
+    
     def format_date(self, date_str):
         """Format date to DD-MMM-YYYY"""
         try:
@@ -45,6 +51,7 @@ class PDFGenerator:
             return date_obj.strftime('%d-%b-%Y')
         except:
             return date_str
+    
     def generate_quotation_pdf(self, quotation_id, output_path="quotation.pdf"):
         """Generate PDF for a quotation"""
         # Get quotation data from database
@@ -137,14 +144,14 @@ class PDFGenerator:
         
         totals_table = Table(totals_data, colWidths=[100, 100, 100, 100])
         totals_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (1, -1), 'CENTER'),     # Blank columns - center
-            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),      # Labels - right aligned
-            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),      # Amounts - right aligned
+            ('ALIGN', (0, 0), (1, -1), 'CENTER'),
+            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (2, 0), (3, -1), 11),        # Labels & amounts - bigger
-            ('FONTSIZE', (0, 0), (1, -1), 8),         # Blank columns - small
-            ('FONTNAME', (2, 2), (3, 2), 'Helvetica-Bold'),  # Grand Total bold
-            ('LINEABOVE', (2, 2), (3, 2), 1, colors.black),   # Line above Grand Total
+            ('FONTSIZE', (2, 0), (3, -1), 11),
+            ('FONTSIZE', (0, 0), (1, -1), 8),
+            ('FONTNAME', (2, 2), (3, 2), 'Helvetica-Bold'),
+            ('LINEABOVE', (2, 2), (3, 2), 1, colors.black),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
         ]))
@@ -223,7 +230,6 @@ class PDFGenerator:
             ''', (quotation_id,))
             
             items = cursor.fetchall()
-            
             conn.close()
             
             # Format data
@@ -260,8 +266,108 @@ class PDFGenerator:
         """Generate PDF for sales report"""
         # Similar to above but for reports
         pass
+    
+    # ============ NEW FUNCTION FOR AI QUOTE GENERATOR ============
+    def generate_quotation_pdf_from_dict(self, quote_data, output_path="quotation.pdf"):
+        """Generate PDF from dictionary data (for AI quotes)"""
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib import colors
+            from reportlab.lib.units import mm
+            from datetime import datetime
+            
+            doc = SimpleDocTemplate(output_path, pagesize=A4,
+                                   rightMargin=20*mm, leftMargin=20*mm,
+                                   topMargin=20*mm, bottomMargin=20*mm)
+            
+            story = []
+            styles = getSampleStyleSheet()
+            
+            # Company Header
+            title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'],
+                                       fontSize=16, textColor=colors.HexColor('#2c3e50'))
+            story.append(Paragraph("ContractorMitra", title_style))
+            story.append(Paragraph("Professional Electrical & Civil Contractor", styles['Normal']))
+            story.append(Paragraph("GSTIN: 27GHIJK5678L9M0N | Phone: 9876543210", styles['Normal']))
+            story.append(Paragraph("12, Industrial Area, Pune - 411001", styles['Normal']))
+            story.append(Spacer(1, 20))
+            
+            # Quotation Title
+            story.append(Paragraph(f"QUOTATION: {quote_data['quote_no']}", 
+                                 ParagraphStyle('QuoteTitle', parent=styles['Heading2'], 
+                                              fontSize=14, textColor=colors.HexColor('#3498db'))))
+            story.append(Spacer(1, 10))
+            
+            # Customer Details
+            story.append(Paragraph(f"Customer: {quote_data['customer_name']}", styles['Normal']))
+            if quote_data.get('customer_phone'):
+                story.append(Paragraph(f"Phone: {quote_data['customer_phone']}", styles['Normal']))
+            if quote_data.get('customer_address'):
+                story.append(Paragraph(f"Address: {quote_data['customer_address']}", styles['Normal']))
+            if quote_data.get('customer_gstin'):
+                story.append(Paragraph(f"GSTIN: {quote_data['customer_gstin']}", styles['Normal']))
+            story.append(Paragraph(f"Date: {quote_data['date']}", styles['Normal']))
+            story.append(Spacer(1, 20))
+            
+            # Items Table
+            table_data = [['Sr.No', 'Description', 'Qty', 'Unit', 'Rate (₹)', 'Amount (₹)']]
+            
+            for idx, item in enumerate(quote_data['items'], 1):
+                table_data.append([
+                    str(idx),
+                    item['name'],
+                    f"{item['quantity']:.0f}",
+                    item['unit'],
+                    f"{item['rate']:,.2f}",
+                    f"{item['amount']:,.2f}"
+                ])
+            
+            # Totals
+            table_data.append(['', '', '', '', 'Sub Total:', f"₹ {quote_data['subtotal']:,.2f}"])
+            table_data.append(['', '', '', '', 'GST @ 18%:', f"₹ {quote_data['gst_amount']:,.2f}"])
+            table_data.append(['', '', '', '', 'Grand Total:', f"₹ {quote_data['grand_total']:,.2f}"])
+            
+            table = Table(table_data, colWidths=[40, 200, 50, 50, 80, 80])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 11),
+                ('GRID', (0, 0), (-1, -3), 1, colors.black),
+                ('FONTNAME', (4, -3), (5, -1), 'Helvetica-Bold'),
+                ('BACKGROUND', (4, -3), (5, -1), colors.HexColor('#E6F3FF')),
+            ]))
+            
+            story.append(table)
+            story.append(Spacer(1, 30))
+            
+            # Terms and Conditions
+            story.append(Paragraph("Terms & Conditions:", styles['Heading4']))
+            story.append(Paragraph("1. This quotation is valid for 30 days from the date of issue", styles['Normal']))
+            story.append(Paragraph("2. 50% advance payment required before starting work", styles['Normal']))
+            story.append(Paragraph("3. GST @18% is applicable on all items", styles['Normal']))
+            story.append(Paragraph("4. Delivery within 7-10 days after advance payment", styles['Normal']))
+            story.append(Spacer(1, 20))
+            
+            # Footer
+            story.append(Paragraph("For ContractorMitra", styles['Normal']))
+            story.append(Spacer(1, 10))
+            story.append(Paragraph("Authorized Signatory", styles['Normal']))
+            story.append(Paragraph("_________________________", styles['Normal']))
+            
+            doc.build(story)
+            return True
+            
+        except Exception as e:
+            print(f"PDF Error: {e}")
+            return False
 
-# Quick test function
+# ============ CLASS ENDS HERE ============
+
+# Quick test function (class ke bahar)
 def test_pdf_generation():
     """Test PDF generation"""
     generator = PDFGenerator()
@@ -284,100 +390,3 @@ def test_pdf_generation():
 
 if __name__ == "__main__":
     test_pdf_generation()
-
-def generate_quotation_pdf_from_dict(self, quote_data, output_path="quotation.pdf"):
-    """Generate PDF from dictionary data (for AI quotes)"""
-    try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib import colors
-        from reportlab.lib.units import mm
-        from datetime import datetime
-        
-        doc = SimpleDocTemplate(output_path, pagesize=A4,
-                               rightMargin=20*mm, leftMargin=20*mm,
-                               topMargin=20*mm, bottomMargin=20*mm)
-        
-        story = []
-        styles = getSampleStyleSheet()
-        
-        # Company Header
-        title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'],
-                                   fontSize=16, textColor=colors.HexColor('#2c3e50'))
-        story.append(Paragraph("ContractorMitra", title_style))
-        story.append(Paragraph("Professional Electrical & Civil Contractor", styles['Normal']))
-        story.append(Paragraph("GSTIN: 27GHIJK5678L9M0N | Phone: 9876543210", styles['Normal']))
-        story.append(Paragraph("12, Industrial Area, Pune - 411001", styles['Normal']))
-        story.append(Spacer(1, 20))
-        
-        # Quotation Title
-        story.append(Paragraph(f"QUOTATION: {quote_data['quote_no']}", 
-                             ParagraphStyle('QuoteTitle', parent=styles['Heading2'], 
-                                          fontSize=14, textColor=colors.HexColor('#3498db'))))
-        story.append(Spacer(1, 10))
-        
-        # Customer Details
-        story.append(Paragraph(f"Customer: {quote_data['customer_name']}", styles['Normal']))
-        if quote_data.get('customer_phone'):
-            story.append(Paragraph(f"Phone: {quote_data['customer_phone']}", styles['Normal']))
-        if quote_data.get('customer_address'):
-            story.append(Paragraph(f"Address: {quote_data['customer_address']}", styles['Normal']))
-        if quote_data.get('customer_gstin'):
-            story.append(Paragraph(f"GSTIN: {quote_data['customer_gstin']}", styles['Normal']))
-        story.append(Paragraph(f"Date: {quote_data['date']}", styles['Normal']))
-        story.append(Spacer(1, 20))
-        
-        # Items Table
-        table_data = [['Sr.No', 'Description', 'Qty', 'Unit', 'Rate (₹)', 'Amount (₹)']]
-        
-        for idx, item in enumerate(quote_data['items'], 1):
-            table_data.append([
-                str(idx),
-                item['name'],
-                f"{item['quantity']:.0f}",
-                item['unit'],
-                f"{item['rate']:,.2f}",
-                f"{item['amount']:,.2f}"
-            ])
-        
-        # Totals
-        table_data.append(['', '', '', '', 'Sub Total:', f"₹ {quote_data['subtotal']:,.2f}"])
-        table_data.append(['', '', '', '', 'GST @ 18%:', f"₹ {quote_data['gst_amount']:,.2f}"])
-        table_data.append(['', '', '', '', 'Grand Total:', f"₹ {quote_data['grand_total']:,.2f}"])
-        
-        table = Table(table_data, colWidths=[40, 200, 50, 50, 80, 80])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 11),
-            ('GRID', (0, 0), (-1, -3), 1, colors.black),
-            ('FONTNAME', (4, -3), (5, -1), 'Helvetica-Bold'),
-            ('BACKGROUND', (4, -3), (5, -1), colors.HexColor('#E6F3FF')),
-        ]))
-        
-        story.append(table)
-        story.append(Spacer(1, 30))
-        
-        # Terms and Conditions
-        story.append(Paragraph("Terms & Conditions:", styles['Heading4']))
-        story.append(Paragraph("1. This quotation is valid for 30 days from the date of issue", styles['Normal']))
-        story.append(Paragraph("2. 50% advance payment required before starting work", styles['Normal']))
-        story.append(Paragraph("3. GST @18% is applicable on all items", styles['Normal']))
-        story.append(Paragraph("4. Delivery within 7-10 days after advance payment", styles['Normal']))
-        story.append(Spacer(1, 20))
-        
-        # Footer
-        story.append(Paragraph("For ContractorMitra", styles['Normal']))
-        story.append(Spacer(1, 10))
-        story.append(Paragraph("Authorized Signatory", styles['Normal']))
-        story.append(Paragraph("_________________________", styles['Normal']))
-        
-        doc.build(story)
-        return True
-        
-    except Exception as e:
-        print(f"PDF Error: {e}")
-        return False    
