@@ -596,93 +596,65 @@ class AIQuoteGenerator:
         self.total_var.set(f"Rs. {grand_total:,.2f}")
     
     def save_quotation(self):
-        """Save quotation to database - FIXED VERSION"""
-        # Validation 1: Customer selected?
+        """Save quotation to database - FINAL FIXED VERSION"""
         if not self.selected_customer_id:
             messagebox.showwarning("Warning", "❌ पहले Customer select करें!")
             return
         
-        # Validation 2: Items generated?
         if not self.items:
             messagebox.showwarning("Warning", "❌ पहले quotation generate करें!")
             return
         
-        # Retry mechanism for database lock
-        max_retries = 3
-        retry_count = 0
-        
-        while retry_count < max_retries:
-            try:
-                conn = sqlite3.connect('contractormitra.db', timeout=10)
-                cursor = conn.cursor()
-                
-                # Enable WAL mode for better concurrency
-                cursor.execute('PRAGMA journal_mode=WAL')
-                
-                # Calculate totals
-                subtotal = sum(item['amount'] for item in self.items)
-                gst = subtotal * 0.18
-                grand_total = subtotal + gst
-                
-                # Generate unique quotation number
-                date_str = datetime.now().strftime('%Y%m%d')
-                cursor.execute("SELECT COUNT(*) FROM quotations WHERE quote_no LIKE ?", (f"QT-{date_str}-%",))
-                count = cursor.fetchone()[0] + 1
-                quote_no = f"QT-{date_str}-{count:03d}"
-                
-                # Insert into quotations table
+        try:
+            conn = sqlite3.connect('contractormitra.db')
+            cursor = conn.cursor()
+            
+            # Calculate totals
+            subtotal = sum(item['amount'] for item in self.items)
+            gst = subtotal * 0.18
+            grand_total = subtotal + gst
+            
+            # Generate quotation number
+            date_str = datetime.now().strftime('%Y%m%d')
+            cursor.execute("SELECT COUNT(*) FROM quotations WHERE quote_no LIKE ?", (f"QT-{date_str}-%",))
+            count = cursor.fetchone()[0] + 1
+            quote_no = f"QT-{date_str}-{count:03d}"
+            
+            # Insert quotation
+            cursor.execute('''
+                INSERT INTO quotations (quote_no, date, customer_id, subtotal, gst_amount, grand_total, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (quote_no, datetime.now().strftime('%Y-%m-%d'), 
+                  self.selected_customer_id, subtotal, gst, grand_total, 'Draft'))
+            
+            quotation_id = cursor.lastrowid
+            
+            # 🔥 FIXED: Insert items with EXPLICIT column names and ALL values
+            for item in self.items:
                 cursor.execute('''
-                    INSERT INTO quotations (quote_no, date, customer_id, subtotal, gst_amount, grand_total, status)
+                    INSERT INTO quotation_items 
+                    (quotation_id, item_name, description, quantity, unit, rate, amount)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (quote_no, datetime.now().strftime('%Y-%m-%d'), 
-                      self.selected_customer_id, subtotal, gst, grand_total, 'Draft'))
-                
-                quotation_id = cursor.lastrowid
-                
-                # Insert items with explicit column names
-                for item in self.items:
-                    cursor.execute('''
-                        INSERT INTO quotation_items 
-                        (quotation_id, item_name, description, quantity, unit, rate, amount)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ''', (
-                        quotation_id, 
-                        item['name'], 
-                        item['description'],
-                        item['quantity'], 
-                        item['unit'], 
-                        item['rate'], 
-                        item['amount']
-                    ))
-                
-                conn.commit()
-                conn.close()
-                
-                # Success message
-                self.status_var.set(f"✅ Quotation {quote_no} saved successfully!")
-                messagebox.showinfo("Success", 
-                                  f"✅ Quotation {quote_no} saved!\n\n"
-                                  f"📁 Database में सेव हो गया।\n"
-                                  f"📊 Total Amount: Rs. {grand_total:,.2f}")
-                return True
-                
-            except sqlite3.OperationalError as e:
-                if "locked" in str(e) and retry_count < max_retries - 1:
-                    retry_count += 1
-                    self.status_var.set(f"⏳ Database locked, retrying... ({retry_count}/{max_retries})")
-                    time.sleep(1)  # Wait 1 second before retry
-                    try:
-                        conn.close()
-                    except:
-                        pass
-                else:
-                    messagebox.showerror("Error", f"❌ Failed to save: {str(e)}")
-                    return False
-            except Exception as e:
-                messagebox.showerror("Error", f"❌ Failed to save: {str(e)}")
-                return False
-        
-        return False
+                ''', (
+                    quotation_id, 
+                    item['name'], 
+                    item['description'],  # ✅ description value देना
+                    item['quantity'], 
+                    item['unit'], 
+                    item['rate'], 
+                    item['amount']
+                ))
+            
+            conn.commit()
+            conn.close()
+            
+            messagebox.showinfo("Success", f"✅ Quotation {quote_no} saved successfully!")
+            self.status_var.set(f"✅ Quotation {quote_no} saved!")
+            return True
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"❌ Failed to save: {str(e)}")
+            return False    
     
     def generate_pdf(self):
         """Generate PDF for quotation"""
