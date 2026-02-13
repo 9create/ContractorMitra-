@@ -11,7 +11,7 @@ class CustomerWindow:
         self.window.title("Customer Management - ContractorMitra")
         self.window.geometry("900x600")
         # Initialize
-         self.setup_ui()
+        self.setup_ui()
         if mode == 'view':
             self.load_customers()
 
