@@ -333,8 +333,12 @@ class ContractorMitra:
         ReportsWindow(self.root)
     
     def pending_payments(self):
-        """Pending payments window"""
-        messagebox.showinfo("Info", "Pending payments functionality will be implemented here")
+        """Open Pending Payments window"""
+        try:
+            from pending_window import PendingWindow
+            PendingWindow(self.root)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open Pending Payments: {str(e)}")
     
     def material_stock(self):
         """Material stock window"""
