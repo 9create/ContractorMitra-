@@ -1,7 +1,7 @@
 """
 AI QUOTE GENERATOR - ContractorMitra
 Pure AI based quotation generation system
-Version: 1.0.0
+Version: 2.0.0 (FINAL FIXED VERSION)
 """
 
 import tkinter as tk
@@ -10,6 +10,7 @@ import sqlite3
 import re
 from datetime import datetime
 import os
+import time
 
 class AIQuoteGenerator:
     def __init__(self, parent):
@@ -33,6 +34,9 @@ class AIQuoteGenerator:
         
         # Center window
         self.center_window()
+        
+        # Bind close event
+        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
     
     def center_window(self):
         """Center window on screen"""
@@ -42,6 +46,13 @@ class AIQuoteGenerator:
         x = (self.window.winfo_screenwidth() // 2) - (width // 2)
         y = (self.window.winfo_screenheight() // 2) - (height // 2)
         self.window.geometry(f'{width}x{height}+{x}+{y}')
+    
+    def on_closing(self):
+        """Handle window close event"""
+        try:
+            self.window.destroy()
+        except:
+            pass
     
     def setup_ui(self):
         """Setup AI Quote Generator UI"""
@@ -156,7 +167,7 @@ class AIQuoteGenerator:
         tree_container.pack(fill=tk.BOTH, expand=True)
         
         # Create Treeview
-        columns = ("Item", "Description", "Qty", "Unit", "Rate (₹)", "Amount (₹)", "GST%")
+        columns = ("Item", "Description", "Qty", "Unit", "Rate (Rs.)", "Amount (Rs.)", "GST%")
         self.tree = ttk.Treeview(tree_container, columns=columns, show="headings", height=8)
         
         # Define column headings and widths
@@ -165,8 +176,8 @@ class AIQuoteGenerator:
             ("Description", 250),
             ("Qty", 60),
             ("Unit", 70),
-            ("Rate (₹)", 100),
-            ("Amount (₹)", 110),
+            ("Rate (Rs.)", 100),
+            ("Amount (Rs.)", 110),
             ("GST%", 60)
         ]
         
@@ -195,9 +206,9 @@ class AIQuoteGenerator:
         total_frame.pack(fill=tk.X, pady=(15, 0))
         
         # Totals
-        self.subtotal_var = tk.StringVar(value="₹ 0.00")
-        self.gst_var = tk.StringVar(value="₹ 0.00")
-        self.total_var = tk.StringVar(value="₹ 0.00")
+        self.subtotal_var = tk.StringVar(value="Rs. 0.00")
+        self.gst_var = tk.StringVar(value="Rs. 0.00")
+        self.total_var = tk.StringVar(value="Rs. 0.00")
         
         # Subtotal
         tk.Label(total_frame, text="SUBTOTAL:", font=("Arial", 11, "bold"),
@@ -528,6 +539,7 @@ class AIQuoteGenerator:
                 old_qty = item['quantity']
                 item['quantity'] += qty
                 item['amount'] = item['quantity'] * item['rate']
+                item['description'] = desc  # Update description
                 
                 # Update in treeview
                 for child in self.tree.get_children():
@@ -538,8 +550,8 @@ class AIQuoteGenerator:
                             desc[:30], 
                             f"{item['quantity']:.0f}", 
                             unit, 
-                            f"₹ {rate:,.2f}", 
-                            f"₹ {item['amount']:,.2f}", 
+                            f"Rs. {rate:,.2f}", 
+                            f"Rs. {item['amount']:,.2f}", 
                             "18%"
                         ))
                         break
@@ -565,8 +577,8 @@ class AIQuoteGenerator:
             desc[:30], 
             f"{qty:.0f}", 
             unit, 
-            f"₹ {rate:,.2f}", 
-            f"₹ {amount:,.2f}", 
+            f"Rs. {rate:,.2f}", 
+            f"Rs. {amount:,.2f}", 
             "18%"
         ))
         
@@ -579,12 +591,12 @@ class AIQuoteGenerator:
         gst = subtotal * 0.18
         grand_total = subtotal + gst
         
-        self.subtotal_var.set(f"₹ {subtotal:,.2f}")
-        self.gst_var.set(f"₹ {gst:,.2f}")
-        self.total_var.set(f"₹ {grand_total:,.2f}")
+        self.subtotal_var.set(f"Rs. {subtotal:,.2f}")
+        self.gst_var.set(f"Rs. {gst:,.2f}")
+        self.total_var.set(f"Rs. {grand_total:,.2f}")
     
     def save_quotation(self):
-        """Save quotation to database"""
+        """Save quotation to database - FIXED VERSION"""
         # Validation 1: Customer selected?
         if not self.selected_customer_id:
             messagebox.showwarning("Warning", "❌ पहले Customer select करें!")
@@ -595,50 +607,82 @@ class AIQuoteGenerator:
             messagebox.showwarning("Warning", "❌ पहले quotation generate करें!")
             return
         
-        try:
-            conn = sqlite3.connect('contractormitra.db')
-            cursor = conn.cursor()
-            
-            # Calculate totals
-            subtotal = sum(item['amount'] for item in self.items)
-            gst = subtotal * 0.18
-            grand_total = subtotal + gst
-            
-            # Generate unique quotation number
-            date_str = datetime.now().strftime('%Y%m%d')
-            cursor.execute("SELECT COUNT(*) FROM quotations WHERE quote_no LIKE ?", (f"QT-{date_str}-%",))
-            count = cursor.fetchone()[0] + 1
-            quote_no = f"QT-{date_str}-{count:03d}"
-            
-            # Insert into quotations table
-            cursor.execute('''
-                INSERT INTO quotations (quote_no, date, customer_id, subtotal, gst_amount, grand_total, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (quote_no, datetime.now().strftime('%Y-%m-%d'), 
-                  self.selected_customer_id, subtotal, gst, grand_total, 'Draft'))
-            
-            quotation_id = cursor.lastrowid
-            
-            # Insert items into quotation_items table
-            for item in self.items:
+        # Retry mechanism for database lock
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                conn = sqlite3.connect('contractormitra.db', timeout=10)
+                cursor = conn.cursor()
+                
+                # Enable WAL mode for better concurrency
+                cursor.execute('PRAGMA journal_mode=WAL')
+                
+                # Calculate totals
+                subtotal = sum(item['amount'] for item in self.items)
+                gst = subtotal * 0.18
+                grand_total = subtotal + gst
+                
+                # Generate unique quotation number
+                date_str = datetime.now().strftime('%Y%m%d')
+                cursor.execute("SELECT COUNT(*) FROM quotations WHERE quote_no LIKE ?", (f"QT-{date_str}-%",))
+                count = cursor.fetchone()[0] + 1
+                quote_no = f"QT-{date_str}-{count:03d}"
+                
+                # Insert into quotations table
                 cursor.execute('''
-                    INSERT INTO quotation_items (quotation_id, item_name, description, quantity, unit, rate, amount)
+                    INSERT INTO quotations (quote_no, date, customer_id, subtotal, gst_amount, grand_total, status)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (quotation_id, item['name'], item['description'], 
-                      item['quantity'], item['unit'], item['rate'], item['amount']))
-            
-            conn.commit()
-            conn.close()
-            
-            # Success message with quotation number
-            self.status_var.set(f"✅ Quotation {quote_no} saved successfully!")
-            messagebox.showinfo("Success", 
-                              f"✅ Quotation {quote_no} saved!\n\n"
-                              f"📁 Database में सेव हो गया।\n"
-                              f"📊 Total Amount: ₹ {grand_total:,.2f}")
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"❌ Failed to save: {str(e)}")
+                ''', (quote_no, datetime.now().strftime('%Y-%m-%d'), 
+                      self.selected_customer_id, subtotal, gst, grand_total, 'Draft'))
+                
+                quotation_id = cursor.lastrowid
+                
+                # Insert items with explicit column names
+                for item in self.items:
+                    cursor.execute('''
+                        INSERT INTO quotation_items 
+                        (quotation_id, item_name, description, quantity, unit, rate, amount)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        quotation_id, 
+                        item['name'], 
+                        item['description'],
+                        item['quantity'], 
+                        item['unit'], 
+                        item['rate'], 
+                        item['amount']
+                    ))
+                
+                conn.commit()
+                conn.close()
+                
+                # Success message
+                self.status_var.set(f"✅ Quotation {quote_no} saved successfully!")
+                messagebox.showinfo("Success", 
+                                  f"✅ Quotation {quote_no} saved!\n\n"
+                                  f"📁 Database में सेव हो गया।\n"
+                                  f"📊 Total Amount: Rs. {grand_total:,.2f}")
+                return True
+                
+            except sqlite3.OperationalError as e:
+                if "locked" in str(e) and retry_count < max_retries - 1:
+                    retry_count += 1
+                    self.status_var.set(f"⏳ Database locked, retrying... ({retry_count}/{max_retries})")
+                    time.sleep(1)  # Wait 1 second before retry
+                    try:
+                        conn.close()
+                    except:
+                        pass
+                else:
+                    messagebox.showerror("Error", f"❌ Failed to save: {str(e)}")
+                    return False
+            except Exception as e:
+                messagebox.showerror("Error", f"❌ Failed to save: {str(e)}")
+                return False
+        
+        return False
     
     def generate_pdf(self):
         """Generate PDF for quotation"""
@@ -661,7 +705,7 @@ class AIQuoteGenerator:
             gst = subtotal * 0.18
             grand_total = subtotal + gst
             
-            # Create quotation data dictionary
+            # Create quotation data dictionary with customer details
             quote_data = {
                 'quote_no': f"AI-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
                 'date': datetime.now().strftime('%d-%b-%Y'),
@@ -730,9 +774,9 @@ class AIQuoteGenerator:
         self.customer_info_var.set("👤 No customer selected")
         
         # Reset totals
-        self.subtotal_var.set("₹ 0.00")
-        self.gst_var.set("₹ 0.00")
-        self.total_var.set("₹ 0.00")
+        self.subtotal_var.set("Rs. 0.00")
+        self.gst_var.set("Rs. 0.00")
+        self.total_var.set("Rs. 0.00")
         
         # Update status
         self.status_var.set("✅ Reset complete. New quotation ready.")
@@ -762,4 +806,7 @@ if __name__ == "__main__":
         
     except Exception as e:
         print(f"Error starting application: {e}")
-        messagebox.showerror("Error", f"Failed to start application: {str(e)}")
+        try:
+            messagebox.showerror("Error", f"Failed to start application: {str(e)}")
+        except:
+            pass
