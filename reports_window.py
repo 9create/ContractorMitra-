@@ -237,22 +237,37 @@ class ReportsWindow:
         data = cursor.fetchall()
         conn.close()
         
-        # Set columns
         columns = ("Quotation No", "Date", "Customer", "Subtotal (₹)", "GST (₹)", "Total (₹)", "Status")
         self.setup_treeview(columns)
+        
+        # Column widths
+        self.tree.column("Quotation No", width=120)
+        self.tree.column("Date", width=90)
+        self.tree.column("Customer", width=150)
+        self.tree.column("Subtotal (₹)", width=100)
+        self.tree.column("GST (₹)", width=80)
+        self.tree.column("Total (₹)", width=100)
+        self.tree.column("Status", width=80)
         
         total_sales = 0
         total_gst = 0
         total_subtotal = 0
         
         for row in data:
-            self.tree.insert("", "end", values=row)
-            self.current_data.append(row)
+            # Format currency columns
+            formatted_row = (
+                row[0], row[1], row[2],
+                f"₹ {self.parse_currency(row[3]):,.2f}",
+                f"₹ {self.parse_currency(row[4]):,.2f}",
+                f"₹ {self.parse_currency(row[5]):,.2f}",
+                row[6]
+            )
+            self.tree.insert("", "end", values=formatted_row)
+            self.current_data.append(formatted_row)
             total_subtotal += self.parse_currency(row[3])
             total_gst += self.parse_currency(row[4])
             total_sales += self.parse_currency(row[5])
         
-        # Summary
         summary_text = f"📊 SALES REPORT SUMMARY\n"
         summary_text += f"Period: {date_from} to {date_to}\n"
         summary_text += f"Total Invoices: {len(data)}\n"
@@ -283,19 +298,28 @@ class ReportsWindow:
         columns = ("Quotation No", "Date", "Customer", "Amount (₹)", "Days Pending")
         self.setup_treeview(columns)
         
+        self.tree.column("Quotation No", width=120)
+        self.tree.column("Date", width=90)
+        self.tree.column("Customer", width=150)
+        self.tree.column("Amount (₹)", width=120)
+        self.tree.column("Days Pending", width=100)
+        
         total_pending = 0
         overdue_count = 0
         total_overdue = 0
         
         for row in data:
             days = int(row[4]) if row[4] else 0
-            values = (row[0], row[1], row[2], f"₹ {self.parse_currency(row[3]):,.2f}", f"{days} days")
-            self.tree.insert("", "end", values=values)
-            self.current_data.append(row)
-            
             amount = self.parse_currency(row[3])
-            total_pending += amount
+            formatted_row = (
+                row[0], row[1], row[2],
+                f"₹ {amount:,.2f}",
+                f"{days} days"
+            )
+            self.tree.insert("", "end", values=formatted_row)
+            self.current_data.append(formatted_row)
             
+            total_pending += amount
             if days > 30:
                 overdue_count += 1
                 total_overdue += amount
@@ -331,21 +355,37 @@ class ReportsWindow:
         columns = ("Customer Name", "Phone", "Email", "Invoices", "Total Spent (₹)", "Last Purchase")
         self.setup_treeview(columns)
         
+        self.tree.column("Customer Name", width=150)
+        self.tree.column("Phone", width=100)
+        self.tree.column("Email", width=150)
+        self.tree.column("Invoices", width=70)
+        self.tree.column("Total Spent (₹)", width=120)
+        self.tree.column("Last Purchase", width=100)
+        
         total_customers = len(data)
         total_revenue = 0
         active_customers = 0
         today = datetime.now().date()
         
         for row in data:
-            self.tree.insert("", "end", values=row)
-            self.current_data.append(row)
-            total_revenue += self.parse_currency(row[4])
+            amount = self.parse_currency(row[4])
+            formatted_row = (
+                row[0], row[1], row[2] or "-",
+                row[3] or 0,
+                f"₹ {amount:,.2f}",
+                row[5] or "-"
+            )
+            self.tree.insert("", "end", values=formatted_row)
+            self.current_data.append(formatted_row)
             
-            # Active in last 30 days
+            total_revenue += amount
             if row[5]:
-                last_date = datetime.strptime(row[5], '%Y-%m-%d').date()
-                if (today - last_date).days <= 30:
-                    active_customers += 1
+                try:
+                    last_date = datetime.strptime(row[5], '%Y-%m-%d').date()
+                    if (today - last_date).days <= 30:
+                        active_customers += 1
+                except:
+                    pass
         
         avg_revenue = total_revenue / total_customers if total_customers > 0 else 0
         
@@ -384,22 +424,37 @@ class ReportsWindow:
         columns = ("Material Name", "Unit", "Quantity", "Total Value (₹)", "Used In (Quotations)")
         self.setup_treeview(columns)
         
+        self.tree.column("Material Name", width=200)
+        self.tree.column("Unit", width=70)
+        self.tree.column("Quantity", width=90)
+        self.tree.column("Total Value (₹)", width=120)
+        self.tree.column("Used In (Quotations)", width=120)
+        
         total_qty = 0
         total_value = 0
         unique_materials = len(data)
         
         for row in data:
-            self.tree.insert("", "end", values=row)
-            self.current_data.append(row)
-            total_qty += self.parse_currency(row[2])
-            total_value += self.parse_currency(row[3])
+            qty = self.parse_currency(row[2])
+            amt = self.parse_currency(row[3])
+            formatted_row = (
+                row[0], row[1],
+                f"{qty:,.2f}",
+                f"₹ {amt:,.2f}",
+                row[4]
+            )
+            self.tree.insert("", "end", values=formatted_row)
+            self.current_data.append(formatted_row)
+            total_qty += qty
+            total_value += amt
         
         summary_text = f"📦 MATERIAL CONSUMPTION REPORT\n"
         summary_text += f"Period: {date_from} to {date_to}\n"
         summary_text += f"Unique Materials: {unique_materials}\n"
         summary_text += f"Total Quantity: {total_qty:,.2f}\n"
         summary_text += f"Total Value: ₹ {total_value:,.2f}\n"
-        summary_text += f"Average Value per Unit: ₹ {total_value/total_qty:,.2f}" if total_qty > 0 else ""
+        if total_qty > 0:
+            summary_text += f"Average Value per Unit: ₹ {total_value/total_qty:,.2f}"
         
         tk.Label(self.summary_frame, text=summary_text, font=("Arial", 11),
                 justify=tk.LEFT, bg="#f0f0f0").pack(pady=10)
@@ -428,10 +483,19 @@ class ReportsWindow:
         columns = ("Month", "Invoices", "Sales (₹)", "GST (₹)", "Net (₹)", "Avg per Invoice")
         self.setup_treeview(columns)
         
+        self.tree.column("Month", width=100)
+        self.tree.column("Invoices", width=70)
+        self.tree.column("Sales (₹)", width=120)
+        self.tree.column("GST (₹)", width=100)
+        self.tree.column("Net (₹)", width=120)
+        self.tree.column("Avg per Invoice", width=120)
+        
         total_invoices = 0
         total_sales = 0
         total_gst = 0
         best_month = {"sales": 0, "month": ""}
+        
+        self.current_data = []
         
         for row in data:
             month, invoices, sales, gst = row
@@ -440,12 +504,18 @@ class ReportsWindow:
             net = sales_float - gst_float
             avg = sales_float / invoices if invoices > 0 else 0
             
-            values = (month, invoices, f"₹ {sales_float:,.2f}", 
-                     f"₹ {gst_float:,.2f}", f"₹ {net:,.2f}", f"₹ {avg:,.2f}")
-            self.tree.insert("", "end", values=values)
-            self.current_data.append(row)
+            display_values = (
+                month,
+                invoices,
+                f"₹ {sales_float:,.2f}",
+                f"₹ {gst_float:,.2f}",
+                f"₹ {net:,.2f}",
+                f"₹ {avg:,.2f}"
+            )
+            self.tree.insert("", "end", values=display_values)
+            self.current_data.append(display_values)
             
-            total_invoices += invoices
+            total_invoices += invoices if invoices else 0
             total_sales += sales_float
             total_gst += gst_float
             
@@ -458,7 +528,8 @@ class ReportsWindow:
         summary_text += f"Total Sales: ₹ {total_sales:,.2f}\n"
         summary_text += f"Total GST: ₹ {total_gst:,.2f}\n"
         summary_text += f"Best Month: {best_month['month']} (₹ {best_month['sales']:,.2f})\n"
-        summary_text += f"Monthly Average: ₹ {total_sales/len(data):,.2f}" if data else ""
+        if data:
+            summary_text += f"Monthly Average: ₹ {total_sales/len(data):,.2f}"
         
         tk.Label(self.summary_frame, text=summary_text, font=("Arial", 11),
                 justify=tk.LEFT, bg="#f0f0f0").pack(pady=10)
@@ -471,7 +542,7 @@ class ReportsWindow:
         
         for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=120)
+            self.tree.column(col, width=120, minwidth=80, stretch=False)
     
     def export_excel(self):
         """Export report to Excel"""
@@ -490,7 +561,6 @@ class ReportsWindow:
                 df = pd.DataFrame(self.current_data, columns=self.current_columns)
                 df.to_excel(filename, index=False)
                 messagebox.showinfo("Success", f"Report exported to:\n{filename}")
-                
         except Exception as e:
             messagebox.showerror("Error", f"Failed to export: {str(e)}")
     
@@ -511,7 +581,6 @@ class ReportsWindow:
                 doc = SimpleDocTemplate(filename, pagesize=landscape(A4))
                 story = []
                 
-                # Title
                 styles = getSampleStyleSheet()
                 title_style = ParagraphStyle(
                     'CustomTitle',
@@ -523,15 +592,14 @@ class ReportsWindow:
                 title = Paragraph(f"ContractorMitra - {self.report_type.get().title()} Report", title_style)
                 story.append(title)
                 
-                # Date
                 date_style = ParagraphStyle('DateStyle', parent=styles['Normal'], fontSize=10)
                 date_text = Paragraph(f"Generated on: {datetime.now().strftime('%d-%b-%Y %H:%M')}", date_style)
                 story.append(date_text)
                 story.append(Spacer(1, 20))
                 
-                # Table
+                # Prepare table data (limit rows for PDF)
                 table_data = [self.current_columns]
-                for row in self.current_data[:100]:  # Limit to 100 rows
+                for row in self.current_data[:100]:
                     table_data.append([str(cell) for cell in row])
                 
                 table = Table(table_data)
@@ -549,15 +617,13 @@ class ReportsWindow:
                 
                 story.append(table)
                 doc.build(story)
-                
                 messagebox.showinfo("Success", f"Report exported to:\n{filename}")
-                
         except Exception as e:
             messagebox.showerror("Error", f"Failed to export PDF: {str(e)}")
     
     def print_report(self):
         """Print report"""
-        self.export_pdf()  # For now, just export to PDF
+        self.export_pdf()
         messagebox.showinfo("Info", "Please use PDF export and print from your PDF viewer.")
 
 if __name__ == "__main__":
