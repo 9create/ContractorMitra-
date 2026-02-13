@@ -1,456 +1,227 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
-import sqlite3
-from datetime import datetime
-from tkinter import scrolledtext
+from tkinter import ttk, messagebox
+import subprocess
+import sys
 import os
 
-# Create images directory if not exists
-if not os.path.exists('images'):
-    os.makedirs('images')
+class ModernButton(tk.Canvas):
+    """Custom modern button with rounded corners and hover effect"""
+    def __init__(self, parent, text, command=None, width=200, height=50, 
+                 bg_color="#ffffff", fg_color="#2c3e50", accent_color="#3498db", 
+                 font=("SF Pro Display", 12, "bold")):
+        super().__init__(parent, width=width, height=height, highlightthickness=0, bg='#f5f5f7')
+        self.command = command
+        self.bg_color = bg_color
+        self.fg_color = fg_color
+        self.accent_color = accent_color
+        self.text = text
+        self.font = font
+        self.width = width
+        self.height = height
+        
+        self.bind("<Enter>", self.on_enter)
+        self.bind("<Leave>", self.on_leave)
+        self.bind("<Button-1>", self.on_click)
+        
+        self.draw_button(bg_color)
+    
+    def draw_button(self, color):
+        self.delete("all")
+        # Rounded rectangle
+        self.create_rounded_rect(5, 5, self.width-5, self.height-5, 15, fill=color, outline="", tags="button")
+        # Text
+        self.create_text(self.width//2, self.height//2, text=self.text, 
+                        fill=self.fg_color, font=self.font, tags="text")
+    
+    def create_rounded_rect(self, x1, y1, x2, y2, radius, **kwargs):
+        points = [x1+radius, y1,
+                  x2-radius, y1,
+                  x2, y1,
+                  x2, y1+radius,
+                  x2, y2-radius,
+                  x2, y2,
+                  x2-radius, y2,
+                  x1+radius, y2,
+                  x1, y2,
+                  x1, y2-radius,
+                  x1, y1+radius,
+                  x1, y1]
+        self.create_polygon(points, smooth=True, **kwargs)
+    
+    def on_enter(self, event):
+        self.draw_button(self.accent_color)
+        self.itemconfig("text", fill="white")
+    
+    def on_leave(self, event):
+        self.draw_button(self.bg_color)
+        self.itemconfig("text", fill=self.fg_color)
+    
+    def on_click(self, event):
+        if self.command:
+            self.command()
 
-class ContractorMitra:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("ContractorMitra v1.0 - Desktop Application")
+class MainWindow:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("ContractorMitra")
         self.root.geometry("1200x700")
-        self.root.state('zoomed')  # Start maximized
+        self.root.configure(bg='#f5f5f7')
         
-        # Set icon (optional)
-        # self.root.iconbitmap('icon.ico')
+        # Center window
+        self.center_window()
         
-        # Variables
-        self.current_customer_id = None
-        self.quotation_items = []
-        
-        # Colors
-        self.colors = {
-            'primary': '#2c3e50',
-            'secondary': '#3498db',
-            'success': '#27ae60',
-            'warning': '#f39c12',
-            'danger': '#e74c3c',
-            'light': '#ecf0f1',
-            'dark': '#2c3e50'
-        }
-        
-        # Initialize
-        self.create_database()
+        # Setup UI
         self.setup_ui()
         
-        # Show welcome
-        self.show_welcome()
-        
-    def create_database(self):
-        """Create SQLite database with all tables"""
-        try:
-            conn = sqlite3.connect('contractormitra.db')
-            cursor = conn.cursor()
-            
-            # Customers table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS customers (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    phone TEXT,
-                    email TEXT,
-                    address TEXT,
-                    gstin TEXT,
-                    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            
-            # Quotations table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS quotations (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    quote_no TEXT UNIQUE NOT NULL,
-                    customer_id INTEGER,
-                    date DATE,
-                    subtotal REAL DEFAULT 0,
-                    transport REAL DEFAULT 0,
-                    loading REAL DEFAULT 0,
-                    other_charges REAL DEFAULT 0,
-                    gst_amount REAL DEFAULT 0,
-                    grand_total REAL DEFAULT 0,
-                    status TEXT DEFAULT 'Draft',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (customer_id) REFERENCES customers (id)
-                )
-            ''')
-            
-            # Quotation items table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS quotation_items (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    quotation_id INTEGER,
-                    item_name TEXT NOT NULL,
-                    unit TEXT,
-                    quantity REAL DEFAULT 1,
-                    rate REAL DEFAULT 0,
-                    gst_percent REAL DEFAULT 18,
-                    amount REAL DEFAULT 0,
-                    FOREIGN KEY (quotation_id) REFERENCES quotations (id)
-                )
-            ''')
-            
-            # Materials table (for quick selection)
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS materials (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    category TEXT,
-                    default_unit TEXT,
-                    default_rate REAL,
-                    default_gst REAL
-                )
-            ''')
-            
-            # Insert sample materials if empty
-            cursor.execute("SELECT COUNT(*) FROM materials")
-            if cursor.fetchone()[0] == 0:
-                sample_materials = [
-                    ('1.5 sq.mm Copper Wire', 'Wires', 'meter', 45.0, 18.0),
-                    ('2.5 sq.mm Copper Wire', 'Wires', 'meter', 65.0, 18.0),
-                    ('Modular Switch 1-Gang', 'Switches', 'piece', 180.0, 18.0),
-                    ('Modular Switch 2-Gang', 'Switches', 'piece', 250.0, 18.0),
-                    ('5A Socket', 'Sockets', 'piece', 120.0, 18.0),
-                    ('15A Socket', 'Sockets', 'piece', 150.0, 18.0),
-                    ('20mm PVC Conduit', 'Conduits', 'meter', 30.0, 18.0),
-                    ('Electrical Labour', 'Labour', 'point', 300.0, 0.0),
-                    ('Installation Labour', 'Labour', 'hour', 200.0, 0.0),
-                    ('LED Panel Light 18W', 'Lighting', 'piece', 450.0, 18.0),
-                    ('Ceiling Fan', 'Fans', 'piece', 1500.0, 18.0),
-                    ('6A MCB', 'Protection', 'piece', 200.0, 18.0),
-                    ('Distribution Box 8-way', 'Protection', 'piece', 800.0, 18.0)
-                ]
-                cursor.executemany('''
-                    INSERT INTO materials (name, category, default_unit, default_rate, default_gst)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', sample_materials)
-            
-            conn.commit()
-            conn.close()
-            print("Database created successfully!")
-            
-        except Exception as e:
-            messagebox.showerror("Database Error", f"Failed to create database: {str(e)}")
+    def center_window(self):
+        self.root.update_idletasks()
+        width = self.root.winfo_width()
+        height = self.root.winfo_height()
+        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        self.root.geometry(f'{width}x{height}+{x}+{y}')
     
     def setup_ui(self):
-        """Setup main UI components"""
-        # Configure style
-        self.style = ttk.Style()
-        self.style.theme_use('clam')
+        # Main container with padding
+        main_frame = tk.Frame(self.root, bg='#f5f5f7')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=40, pady=40)
         
-        # Configure colors
-        self.root.configure(bg=self.colors['light'])
+        # Header
+        header_frame = tk.Frame(main_frame, bg='#f5f5f7')
+        header_frame.pack(fill=tk.X, pady=(0, 40))
         
-        # Create menu
-        self.create_menu()
+        # Logo/Title
+        title_label = tk.Label(header_frame, text="ContractorMitra", 
+                              font=("SF Pro Display", 32, "bold"),
+                              fg="#1d1d1f", bg='#f5f5f7')
+        title_label.pack()
         
-        # Create status bar
-        self.create_status_bar()
+        subtitle = tk.Label(header_frame, text="Professional Quotation & Billing Software\nfor Electrical & Civil Contractors",
+                          font=("SF Pro Text", 14), fg="#86868b", bg='#f5f5f7', justify=tk.CENTER)
+        subtitle.pack(pady=(10, 0))
         
-    def create_menu(self):
-        """Create main menu bar"""
-        menubar = tk.Menu(self.root)
-        self.root.config(menu=menubar)
-        
-        # File Menu
-        file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="New Quotation", command=self.new_quotation, accelerator="Ctrl+N")
-        file_menu.add_command(label="Open Quotation", command=self.open_quotation, accelerator="Ctrl+O")
-        file_menu.add_separator()
-        file_menu.add_command(label="Print", command=self.print_document, accelerator="Ctrl+P")
-        file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.quit, accelerator="Alt+F4")
-        
-        # Customers Menu
-        customer_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Customers", menu=customer_menu)
-        customer_menu.add_command(label="Add New Customer", command=self.add_customer)
-        customer_menu.add_command(label="View All Customers", command=self.view_customers)
-        customer_menu.add_command(label="Search Customer", command=self.search_customer)
-        
-        # Materials Menu
-        material_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Materials", menu=material_menu)
-        material_menu.add_command(label="Manage Materials", command=self.manage_materials)
-        material_menu.add_command(label="Add New Material", command=self.add_material)
-        
-        # Reports Menu
-        reports_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Reports", menu=reports_menu)
-        reports_menu.add_command(label="Sales Report", command=self.sales_report)
-        reports_menu.add_command(label="Pending Payments", command=self.pending_payments)
-        reports_menu.add_command(label="Material Stock", command=self.material_stock)
-        
-        # Tools Menu
-        tools_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Tools", menu=tools_menu)
-        tools_menu.add_command(label="Calculator", command=self.open_calculator)
-        tools_menu.add_command(label="Backup Database", command=self.backup_database)
-        tools_menu.add_command(label="Restore Database", command=self.restore_database)
-        
-        # Help Menu
-        help_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Help", menu=help_menu)
-        help_menu.add_command(label="User Manual", command=self.user_manual)
-        help_menu.add_command(label="About", command=self.about_dialog)
-        
-        # Bind shortcuts
-        self.root.bind('<Control-n>', lambda e: self.new_quotation())
-        self.root.bind('<Control-o>', lambda e: self.open_quotation())
-        self.root.bind('<Control-p>', lambda e: self.print_document())
-    
-    def create_status_bar(self):
-        """Create status bar at bottom"""
-        self.status_bar = tk.Label(self.root, text="Ready", bd=1, relief=tk.SUNKEN, anchor=tk.W)
-        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-        
-        # Add clock
-        self.clock_label = tk.Label(self.status_bar, text="", anchor=tk.E)
-        self.clock_label.pack(side=tk.RIGHT, padx=10)
-        self.update_clock()
-    
-    def update_clock(self):
-        """Update clock in status bar"""
-        current_time = datetime.now().strftime("%d-%b-%Y %I:%M:%S %p")
-        self.clock_label.config(text=current_time)
-        self.root.after(1000, self.update_clock)
-    
-    def show_welcome(self):
-        """Show welcome screen"""
-        # Clear any existing frames
-        for widget in self.root.winfo_children():
-            if widget not in [self.status_bar]:
-                widget.destroy()
-        
-        # Welcome frame
-        welcome_frame = tk.Frame(self.root, bg=self.colors['light'])
-        welcome_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Logo/Title area
-        title_frame = tk.Frame(welcome_frame, bg=self.colors['primary'], height=150)
-        title_frame.pack(fill=tk.X)
-        title_frame.pack_propagate(False)
-        
-        tk.Label(title_frame, text="ContractorMitra", 
-                font=("Arial", 36, "bold"), bg=self.colors['primary'], fg="white").pack(pady=30)
-        
-        tk.Label(title_frame, text="Professional Quotation & Billing Software for Electrical & Civil Contractors",
-                font=("Arial", 14), bg=self.colors['primary'], fg="#bdc3c7").pack()
-        
-        # Quick actions frame
-        actions_frame = tk.Frame(welcome_frame, bg=self.colors['light'])
-        actions_frame.pack(fill=tk.BOTH, expand=True, padx=50, pady=50)
-        
-        # Action buttons grid
-        buttons_data = [
-            ("📝 New Quotation", self.new_quotation, self.colors['secondary']),
-            ("👥 Add Customer", self.add_customer, self.colors['success']),
-            ("📊 View Reports", self.sales_report, self.colors['warning']),
-            ("📦 Manage Materials", self.manage_materials, "#9b59b6"),
-            ("💰 Pending Payments", self.pending_payments, self.colors['danger']),
-            ("🛠️ Calculator", self.open_calculator, "#16a085")
-        ]
-        
-        row, col = 0, 0
-        for text, command, color in buttons_data:
-            btn = tk.Button(actions_frame, text=text, command=command,
-                          font=("Arial", 12, "bold"), bg=color, fg="white",
-                          height=3, width=20, cursor="hand2")
-            btn.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
-            btn.bind("<Enter>", lambda e, b=btn: b.config(bg=self.darken_color(b.cget('bg'))))
-            btn.bind("<Leave>", lambda e, b=btn, c=color: b.config(bg=c))
-            
-            col += 1
-            if col > 2:
-                col = 0
-                row += 1
+        # Cards Grid Frame
+        cards_frame = tk.Frame(main_frame, bg='#f5f5f7')
+        cards_frame.pack(expand=True, fill=tk.BOTH)
         
         # Configure grid
         for i in range(3):
-            actions_frame.columnconfigure(i, weight=1)
-        for i in range(2):
-            actions_frame.rowconfigure(i, weight=1)
+            cards_frame.grid_columnconfigure(i, weight=1, uniform="group")
+        cards_frame.grid_rowconfigure(0, weight=1)
+        cards_frame.grid_rowconfigure(1, weight=1)
         
-        # Recent activities
-        recent_frame = tk.LabelFrame(welcome_frame, text="Recent Activities", 
-                                    font=("Arial", 12, "bold"), bg=self.colors['light'])
-        recent_frame.pack(fill=tk.X, padx=50, pady=(0, 20))
-        
-        # Sample recent activities
-        activities = [
-            "Today: Created quotation QT-2024-001 for ₹25,000",
-            "Yesterday: Customer Rajesh paid ₹15,000",
-            "Dec 10: Added 5 new materials to database"
+        # Card data
+        cards = [
+            {"title": "📋 New Quotation", "desc": "Create professional quotations in seconds", "color": "#3498db", "command": self.new_quotation},
+            {"title": "👥 Customers", "desc": "Manage your customer database", "color": "#2ecc71", "command": self.manage_customers},
+            {"title": "📦 Materials", "desc": "Track your material inventory", "color": "#f39c12", "command": self.manage_materials},
+            {"title": "📊 Reports", "desc": "View sales & payment reports", "color": "#9b59b6", "command": self.view_reports},
+            {"title": "💰 Pending Payments", "desc": "Track outstanding payments", "color": "#e74c3c", "command": self.pending_payments},
+            {"title": "🤖 AI Quote", "desc": "AI-powered quotation generator", "color": "#1abc9c", "command": self.ai_quote_generator},
         ]
         
-        for activity in activities:
-            tk.Label(recent_frame, text=f"• {activity}", 
-                    bg=self.colors['light'], font=("Arial", 10)).pack(anchor=tk.W, padx=10, pady=2)
+        # Create cards in grid
+        for idx, card in enumerate(cards):
+            row = idx // 3
+            col = idx % 3
+            self.create_card(cards_frame, card, row, col)
+        
+        # Footer
+        footer_frame = tk.Frame(main_frame, bg='#f5f5f7')
+        footer_frame.pack(fill=tk.X, pady=(30, 0))
+        
+        footer_text = tk.Label(footer_frame, 
+                              text="Made with ❤️ by ContractorMitra • v2.0 • Clean Edition",
+                              font=("SF Pro Text", 10), fg="#86868b", bg='#f5f5f7')
+        footer_text.pack()
     
-    def darken_color(self, color):
-        """Darken a color for hover effect"""
-        # Simple darkening for demo
-        return color
-    
-    # ========== MAIN FUNCTIONALITY METHODS ==========
+    def create_card(self, parent, card, row, col):
+        """Create a modern card"""
+        card_frame = tk.Frame(parent, bg='white', relief=tk.FLAT, bd=0)
+        card_frame.grid(row=row, column=col, padx=10, pady=10, sticky='nsew')
+        
+        # Add shadow effect with padding
+        inner_frame = tk.Frame(card_frame, bg='white')
+        inner_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        
+        # Title
+        title = tk.Label(inner_frame, text=card["title"], 
+                        font=("SF Pro Display", 16, "bold"),
+                        fg="#1d1d1f", bg='white')
+        title.pack(anchor=tk.W, padx=20, pady=(20, 5))
+        
+        # Description
+        desc = tk.Label(inner_frame, text=card["desc"],
+                       font=("SF Pro Text", 11), fg="#86868b", bg='white',
+                       wraplength=200, justify=tk.LEFT)
+        desc.pack(anchor=tk.W, padx=20, pady=(0, 20))
+        
+        # Button
+        btn = ModernButton(inner_frame, text="Open →", command=card["command"],
+                          width=150, height=40, bg_color='white',
+                          fg_color=card["color"], accent_color=card["color"])
+        btn.pack(pady=(0, 20))
+        
+        # Hover effect for card
+        def on_card_enter(e):
+            inner_frame.configure(bg='#f8f9fa')
+            for widget in inner_frame.winfo_children():
+                if isinstance(widget, tk.Label):
+                    widget.configure(bg='#f8f9fa')
+        
+        def on_card_leave(e):
+            inner_frame.configure(bg='white')
+            for widget in inner_frame.winfo_children():
+                if isinstance(widget, tk.Label):
+                    widget.configure(bg='white')
+        
+        inner_frame.bind("<Enter>", on_card_enter)
+        inner_frame.bind("<Leave>", on_card_leave)
+        for widget in inner_frame.winfo_children():
+            widget.bind("<Enter>", on_card_enter)
+            widget.bind("<Leave>", on_card_leave)
     
     def new_quotation(self):
-        """Open new quotation window"""
-        from quotation_window import QuotationWindow
-        QuotationWindow(self.root)
+        messagebox.showinfo("Coming Soon", "New Quotation feature coming in Phase 2")
     
-    def add_customer(self):
-        """Open add customer window"""
-        from customer_window import CustomerWindow
-        CustomerWindow(self.root, mode='add')
-    
-    def view_customers(self):
-        """Open view customers window"""
-        from customer_window import CustomerWindow
-        CustomerWindow(self.root, mode='view')
-    
-    def search_customer(self):
-        """Search customer dialog"""
-        messagebox.showinfo("Info", "Customer search functionality will be implemented here")
+    def manage_customers(self):
+        try:
+            from customer_window import CustomerWindow
+            CustomerWindow(self.root)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open Customer Window: {str(e)}")
     
     def manage_materials(self):
-        """Manage materials window"""
-        from material_window import MaterialWindow
-        MaterialWindow(self.root)
+        try:
+            from material_window import MaterialWindow
+            MaterialWindow(self.root)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open Material Window: {str(e)}")
     
-    def add_material(self):
-        """Add new material"""
-        messagebox.showinfo("Info", "Add material functionality will be implemented here")
-    
-    def sales_report(self):
-        """Sales report window"""
-        from reports_window import ReportsWindow
-        ReportsWindow(self.root)
+    def view_reports(self):
+        try:
+            from reports_window import ReportsWindow
+            ReportsWindow(self.root)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open Reports: {str(e)}")
     
     def pending_payments(self):
-        """Open Pending Payments window"""
         try:
             from pending_window import PendingWindow
             PendingWindow(self.root)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open Pending Payments: {str(e)}")
     
-    def material_stock(self):
-        """Material stock window"""
-        messagebox.showinfo("Info", "Material stock functionality will be implemented here")
-    
-    def open_calculator(self):
-        """Open calculator"""
-        import subprocess
+    def ai_quote_generator(self):
         try:
-            subprocess.Popen('calc.exe')  # Windows
-        except:
-            messagebox.showinfo("Calculator", "Use your system calculator")
-    
-    def backup_database(self):
-        """Backup database"""
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".db",
-            filetypes=[("Database files", "*.db"), ("All files", "*.*")]
-        )
-        if filename:
-            import shutil
-            try:
-                shutil.copy2('contractormitra.db', filename)
-                messagebox.showinfo("Success", f"Database backed up to:\n{filename}")
-            except Exception as e:
-                messagebox.showerror("Error", f"Backup failed: {str(e)}")
-    
-    def restore_database(self):
-        """Restore database"""
-        if messagebox.askyesno("Confirm", "This will overwrite current database. Continue?"):
-            filename = filedialog.askopenfilename(
-                filetypes=[("Database files", "*.db"), ("All files", "*.*")]
-            )
-            if filename:
-                import shutil
-                try:
-                    shutil.copy2(filename, 'contractormitra.db')
-                    messagebox.showinfo("Success", "Database restored successfully!")
-                except Exception as e:
-                    messagebox.showerror("Error", f"Restore failed: {str(e)}")
-    
-    def open_quotation(self):
-        """Open existing quotation"""
-        messagebox.showinfo("Info", "Open quotation functionality will be implemented here")
-    
-    def print_document(self):
-        """Print current document"""
-        messagebox.showinfo("Info", "Print functionality will be implemented here")
-    
-    def user_manual(self):
-        """Show user manual"""
-        manual_text = """ContractorMitra User Manual
-
-1. New Quotation:
-   - Press Ctrl+N or click New Quotation
-   - Select customer or add new
-   - Add items from material database
-   - Save as draft or generate PDF
-
-2. Customer Management:
-   - Add new customers with GST details
-   - View all customers
-   - Search customers by name/phone
-
-3. Materials Database:
-   - Pre-loaded electrical items
-   - Add your own materials
-   - Quick selection in quotations
-
-4. Reports:
-   - Sales reports
-   - Pending payments
-   - Material consumption
-
-For support: contact@contractormitra.com"""
-        
-        manual_window = tk.Toplevel(self.root)
-        manual_window.title("User Manual")
-        manual_window.geometry("600x400")
-        
-        text_area = scrolledtext.ScrolledText(manual_window, wrap=tk.WORD, width=70, height=20)
-        text_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
-        text_area.insert(tk.END, manual_text)
-        text_area.config(state=tk.DISABLED)
-    
-    def about_dialog(self):
-        """Show about dialog"""
-        about_text = f"""ContractorMitra v1.0
-
-Professional Quotation & Billing Software
-for Electrical & Civil Contractors
-
-Developed with Python & Tkinter
-Database: SQLite
-
-Features:
-✓ Smart Quotation Generation
-✓ Customer Management
-✓ Material Database
-✓ GST Compliant Invoices
-✓ Desktop Application (Works Offline)
-
-© 2024 ContractorMitra. All rights reserved."""
-        
-        messagebox.showinfo("About ContractorMitra", about_text)
+            from ai_quote_generator import AIQuoteGenerator
+            AIQuoteGenerator(self.root)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open AI Quote Generator: {str(e)}")
     
     def run(self):
-        """Run the application"""
         self.root.mainloop()
 
-# Main entry point
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = ContractorMitra(root)
+    app = MainWindow()
     app.run()
