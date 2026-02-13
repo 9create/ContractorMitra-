@@ -1,7 +1,7 @@
 """
 AI QUOTE GENERATOR - ContractorMitra
-FULLY PRODUCTION READY + MODERN APPLE UI
-Version: 3.0.0
+FULLY PRODUCTION READY + FIXED UI
+Version: 3.0.1
 """
 
 import tkinter as tk
@@ -147,38 +147,63 @@ class AIQuoteGenerator:
         self.create_modern_button(btn_frame, "⚡ GENERATE QUOTATION ⚡",
                                   self.generate_ai_quote, ModernStyle.ACCENT_GREEN, 280).pack()
 
-        # Items Treeview
+        # Items Treeview - SEPARATE FRAME (no totals inside)
         tree_card = tk.Frame(main, bg="white", relief=tk.FLAT)
-        tree_card.pack(fill=tk.BOTH, expand=True, pady=(0,20))
+        tree_card.pack(fill=tk.BOTH, expand=True, pady=(0,10))
         inner_tree = tk.Frame(tree_card, bg="white")
         inner_tree.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
 
         tk.Label(inner_tree, text="📋 Quotation Items", font=ModernStyle.FONT_TITLE,
                  fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(anchor=tk.W, pady=(0,10))
 
-        self.setup_treeview(inner_tree)
+        # Treeview
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview", background="white", foreground=ModernStyle.TEXT_PRIMARY,
+                        rowheight=28, fieldbackground="white", font=ModernStyle.FONT_NORMAL)
+        style.configure("Treeview.Heading", background=ModernStyle.BG_COLOR,
+                        foreground=ModernStyle.TEXT_PRIMARY, font=("SF Pro Text", 11, "bold"))
+        style.map("Treeview", background=[("selected", ModernStyle.ACCENT_BLUE)])
 
-        # Totals
-        total_frame = tk.Frame(inner_tree, bg="white")
-        total_frame.pack(fill=tk.X, pady=(10,0))
+        cols = ("Item", "Description", "Qty", "Unit", "Rate (Rs.)", "Amount (Rs.)", "GST%")
+        self.tree = ttk.Treeview(inner_tree, columns=cols, show="headings", height=6, style="Treeview")
+        widths = [120,250,60,70,100,110,60]
+        for col,w in zip(cols,widths):
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=w)
+
+        scroll = ttk.Scrollbar(inner_tree, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scroll.set)
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Totals Frame - ALAG SE (treeview ke neeche)
+        total_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
+        total_frame.pack(fill=tk.X, pady=5)
+
+        # Totals inside white card
+        total_card = tk.Frame(total_frame, bg="white", relief=tk.FLAT)
+        total_card.pack(fill=tk.X)
+        total_inner = tk.Frame(total_card, bg="white")
+        total_inner.pack(fill=tk.X, padx=20, pady=10)
 
         self.subtotal_var = tk.StringVar(value="Rs. 0.00")
         self.gst_var = tk.StringVar(value="Rs. 0.00")
         self.total_var = tk.StringVar(value="Rs. 0.00")
 
-        tk.Label(total_frame, text="SUBTOTAL:", font=ModernStyle.FONT_NORMAL,
+        tk.Label(total_inner, text="SUBTOTAL:", font=ModernStyle.FONT_NORMAL,
                  fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(side=tk.LEFT, padx=(0,5))
-        tk.Label(total_frame, textvariable=self.subtotal_var, font=ModernStyle.FONT_TITLE,
+        tk.Label(total_inner, textvariable=self.subtotal_var, font=ModernStyle.FONT_TITLE,
                  fg=ModernStyle.ACCENT_GREEN, bg="white").pack(side=tk.LEFT, padx=(0,20))
 
-        tk.Label(total_frame, text="GST (18%):", font=ModernStyle.FONT_NORMAL,
+        tk.Label(total_inner, text="GST (18%):", font=ModernStyle.FONT_NORMAL,
                  fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(side=tk.LEFT, padx=(0,5))
-        tk.Label(total_frame, textvariable=self.gst_var, font=ModernStyle.FONT_TITLE,
+        tk.Label(total_inner, textvariable=self.gst_var, font=ModernStyle.FONT_TITLE,
                  fg=ModernStyle.ACCENT_ORANGE, bg="white").pack(side=tk.LEFT, padx=(0,20))
 
-        tk.Label(total_frame, text="GRAND TOTAL:", font=ModernStyle.FONT_NORMAL,
+        tk.Label(total_inner, text="GRAND TOTAL:", font=ModernStyle.FONT_NORMAL,
                  fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(side=tk.LEFT, padx=(0,5))
-        tk.Label(total_frame, textvariable=self.total_var, font=ModernStyle.FONT_TITLE,
+        tk.Label(total_inner, textvariable=self.total_var, font=ModernStyle.FONT_TITLE,
                  fg=ModernStyle.ACCENT_RED, bg="white").pack(side=tk.LEFT)
 
         # Action Buttons
@@ -200,27 +225,7 @@ class AIQuoteGenerator:
                  fg=ModernStyle.TEXT_SECONDARY, bg=ModernStyle.BG_COLOR,
                  anchor=tk.W).pack(fill=tk.X, pady=(10,0))
 
-    def setup_treeview(self, parent):
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Treeview", background="white", foreground=ModernStyle.TEXT_PRIMARY,
-                        rowheight=28, fieldbackground="white", font=ModernStyle.FONT_NORMAL)
-        style.configure("Treeview.Heading", background=ModernStyle.BG_COLOR,
-                        foreground=ModernStyle.TEXT_PRIMARY, font=("SF Pro Text", 11, "bold"))
-        style.map("Treeview", background=[("selected", ModernStyle.ACCENT_BLUE)])
-
-        cols = ("Item", "Description", "Qty", "Unit", "Rate (Rs.)", "Amount (Rs.)", "GST%")
-        self.tree = ttk.Treeview(parent, columns=cols, show="headings", height=6, style="Treeview")
-        widths = [120,250,60,70,100,110,60]
-        for col,w in zip(cols,widths):
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=w)
-
-        scroll = ttk.Scrollbar(parent, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll.pack(side=tk.RIGHT, fill=tk.Y)
-
+    # ---------- LOAD DATA ----------
     def load_materials(self):
         try:
             conn = sqlite3.connect('contractormitra.db')
@@ -399,7 +404,7 @@ class AIQuoteGenerator:
         if area>0:
             pts = max(5, area//150)
         else:
-            pts = max(5, len(self.items))
+            pts = max(5, len(self.items)+2)
         self.add_item("Electrical Labour", "installation labour", pts, "point", 300.0)
         added+=1
 
