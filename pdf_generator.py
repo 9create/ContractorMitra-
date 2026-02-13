@@ -285,30 +285,48 @@ class PDFGenerator:
             story = []
             styles = getSampleStyleSheet()
             
-            # Company Header
-            title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'],
-                                       fontSize=16, textColor=colors.HexColor('#2c3e50'))
-            story.append(Paragraph("ContractorMitra", title_style))
-            story.append(Paragraph("Professional Electrical & Civil Contractor", styles['Normal']))
-            story.append(Paragraph("GSTIN: 27GHIJK5678L9M0N | Phone: 9876543210", styles['Normal']))
-            story.append(Paragraph("12, Industrial Area, Pune - 411001", styles['Normal']))
-            story.append(Spacer(1, 20))
+            # ========== CUSTOMER HEADER (BIG) ==========
+            customer_title_style = ParagraphStyle(
+                'CustomerTitle',
+                parent=styles['Heading1'],
+                fontSize=22,
+                textColor=colors.HexColor('#2c3e50'),
+                alignment=1,  # Center alignment
+                spaceAfter=6
+            )
+            story.append(Paragraph(quote_data['customer_name'], customer_title_style))
+            
+            # Customer details (small below name)
+            if quote_data.get('customer_address'):
+                addr_style = ParagraphStyle('AddressStyle', parent=styles['Normal'],
+                                          fontSize=10, alignment=1, textColor=colors.HexColor('#34495e'))
+                story.append(Paragraph(quote_data['customer_address'], addr_style))
+            
+            if quote_data.get('customer_phone') or quote_data.get('customer_gstin'):
+                contact = ""
+                if quote_data.get('customer_phone'):
+                    contact += f"📞 {quote_data['customer_phone']}"
+                if quote_data.get('customer_gstin'):
+                    contact += f" | GST: {quote_data['customer_gstin']}"
+                story.append(Paragraph(contact, addr_style))
+            
+            story.append(Spacer(1, 15))
             
             # Quotation Title
-            story.append(Paragraph(f"QUOTATION: {quote_data['quote_no']}", 
-                                 ParagraphStyle('QuoteTitle', parent=styles['Heading2'], 
-                                              fontSize=14, textColor=colors.HexColor('#3498db'))))
-            story.append(Spacer(1, 10))
+            quote_title_style = ParagraphStyle(
+                'QuoteTitle',
+                parent=styles['Heading2'],
+                fontSize=14,
+                textColor=colors.HexColor('#e67e22'),
+                alignment=1,
+                spaceAfter=5
+            )
+            story.append(Paragraph(f"QUOTATION: {quote_data['quote_no']}", quote_title_style))
             
-            # Customer Details
-            story.append(Paragraph(f"Customer: {quote_data['customer_name']}", styles['Normal']))
-            if quote_data.get('customer_phone'):
-                story.append(Paragraph(f"Phone: {quote_data['customer_phone']}", styles['Normal']))
-            if quote_data.get('customer_address'):
-                story.append(Paragraph(f"Address: {quote_data['customer_address']}", styles['Normal']))
-            if quote_data.get('customer_gstin'):
-                story.append(Paragraph(f"GSTIN: {quote_data['customer_gstin']}", styles['Normal']))
-            story.append(Paragraph(f"Date: {quote_data['date']}", styles['Normal']))
+            # Date
+            date_style = ParagraphStyle('DateStyle', parent=styles['Normal'],
+                                      fontSize=10, alignment=1, textColor=colors.HexColor('#7f8c8d'))
+            story.append(Paragraph(f"Date: {quote_data['date']}", date_style))
             story.append(Spacer(1, 20))
             
             # Items Table
@@ -346,17 +364,30 @@ class PDFGenerator:
             
             # Terms and Conditions
             story.append(Paragraph("Terms & Conditions:", styles['Heading4']))
-            story.append(Paragraph("1. This quotation is valid for 30 days from the date of issue", styles['Normal']))
-            story.append(Paragraph("2. 50% advance payment required before starting work", styles['Normal']))
-            story.append(Paragraph("3. GST @18% is applicable on all items", styles['Normal']))
-            story.append(Paragraph("4. Delivery within 7-10 days after advance payment", styles['Normal']))
+            terms = [
+                "1. This quotation is valid for 30 days from the date of issue",
+                "2. 50% advance payment required before starting work",
+                "3. GST @18% is applicable on all items",
+                "4. Delivery within 7-10 days after advance payment"
+            ]
+            for term in terms:
+                story.append(Paragraph(term, styles['Normal']))
+            
             story.append(Spacer(1, 20))
             
-            # Footer
-            story.append(Paragraph("For ContractorMitra", styles['Normal']))
+            # ========== FOOTER - Made by ContractorMitra (SMALL) ==========
+            footer_style = ParagraphStyle(
+                'FooterStyle',
+                parent=styles['Normal'],
+                fontSize=8,
+                textColor=colors.HexColor('#95a5a6'),
+                alignment=1,
+                spaceAfter=2
+            )
             story.append(Spacer(1, 10))
-            story.append(Paragraph("Authorized Signatory", styles['Normal']))
-            story.append(Paragraph("_________________________", styles['Normal']))
+            story.append(Paragraph("________________________________________", footer_style))
+            story.append(Paragraph("Made with ❤️ by ContractorMitra", footer_style))
+            story.append(Paragraph("Professional Electrical & Civil Contractor Software", footer_style))
             
             doc.build(story)
             return True
