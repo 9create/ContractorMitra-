@@ -85,6 +85,9 @@ class PendingWindow:
         tk.Button(button_frame, text="Delete", command=self.delete_payment,
                  bg="#e74c3c", fg="white", width=15).pack(side=tk.LEFT, padx=5)
         
+        tk.Button(button_frame, text="Export to Excel", command=self.export_to_excel,
+                 bg="#9b59b6", fg="white", width=15).pack(side=tk.LEFT, padx=5)
+        
         tk.Button(button_frame, text="Close", command=self.window.destroy,
                  bg="#95a5a6", fg="white", width=15).pack(side=tk.LEFT, padx=5)
     
@@ -167,7 +170,7 @@ class PendingWindow:
             widget.insert(tk.INSERT, text)
         except tk.TclError:
             pass
-
+    
     def on_search(self, *args):
         """Search payments"""
         search_term = self.search_var.get().lower()
@@ -222,7 +225,6 @@ class PendingWindow:
         # Due Date
         tk.Label(form_frame, text="Due Date *").grid(row=4, column=0, padx=10, pady=10, sticky=tk.W)
         due_date_entry = tk.Entry(form_frame, width=35)
-        from datetime import datetime
         due_date_entry.insert(0, datetime.now().strftime('%Y-%m-%d'))
         due_date_entry.grid(row=4, column=1, padx=10, pady=10, sticky=tk.W)
         due_date_entry.bind('<Tab>', self.focus_next_widget)
@@ -319,7 +321,40 @@ class PendingWindow:
         if not selected:
             messagebox.showwarning("Warning", "Please select a payment to mark as paid")
             return
-        messagebox.showinfo("Coming Soon", "Mark as Paid feature coming soon!")
+        
+        # Get payment ID
+        item = self.tree.item(selected[0])
+        payment_id = item['values'][0]
+        customer_name = item['values'][1]
+        pending_amount = item['values'][6].replace('₹', '').replace(',', '').strip()
+        
+        # Ask for confirmation
+        if not messagebox.askyesno("Confirm", 
+                                  f"Mark payment of ₹{pending_amount} from {customer_name} as paid?"):
+            return
+        
+        try:
+            conn = sqlite3.connect('contractormitra.db')
+            cursor = conn.cursor()
+            
+            # Update payment status
+            cursor.execute('''
+                UPDATE payments 
+                SET status = 'paid', 
+                    paid_amount = amount,
+                    pending_amount = 0,
+                    payment_date = ?
+                WHERE id = ?
+            ''', (datetime.now().strftime('%Y-%m-%d'), payment_id))
+            
+            conn.commit()
+            conn.close()
+            
+            messagebox.showinfo("Success", "Payment marked as paid successfully!")
+            self.load_payments()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to mark as paid: {str(e)}")
     
     def view_details(self):
         """View payment details"""
@@ -327,7 +362,66 @@ class PendingWindow:
         if not selected:
             messagebox.showwarning("Warning", "Please select a payment to view")
             return
-        messagebox.showinfo("Coming Soon", "View Details feature coming soon!")
+        
+        # Get payment ID
+        item = self.tree.item(selected[0])
+        payment_id = item['values'][0]
+        
+        try:
+            conn = sqlite3.connect('contractormitra.db')
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT p.*, c.name, c.phone, c.email 
+                FROM payments p
+                LEFT JOIN customers c ON p.customer_id = c.id
+                WHERE p.id = ?
+            ''', (payment_id,))
+            
+            payment = cursor.fetchone()
+            conn.close()
+            
+            if not payment:
+                messagebox.showerror("Error", "Payment not found")
+                return
+            
+            # Show details in new window
+            details_window = tk.Toplevel(self.window)
+            details_window.title("Payment Details")
+            details_window.geometry("500x500")
+            
+            tk.Label(details_window, text="PAYMENT DETAILS", 
+                    font=("Arial", 14, "bold"), fg="#2c3e50").pack(pady=(10, 20))
+            
+            details_frame = tk.Frame(details_window)
+            details_frame.pack(fill=tk.BOTH, expand=True, padx=30)
+            
+            # Payment details
+            details = [
+                ("Payment ID:", payment[0]),
+                ("Customer:", payment[13]),
+                ("Phone:", payment[14] or "N/A"),
+                ("Email:", payment[15] or "N/A"),
+                ("Amount:", f"₹ {payment[4]:,.2f}"),
+                ("Paid Amount:", f"₹ {payment[5]:,.2f}"),
+                ("Pending Amount:", f"₹ {payment[6]:,.2f}"),
+                ("Due Date:", payment[7]),
+                ("Payment Date:", payment[8] or "Not paid"),
+                ("Status:", payment[9].title()),
+                ("Reference No:", payment[10] or "-"),
+                ("Remarks:", payment[11] or "-"),
+                ("Created:", payment[12])
+            ]
+            
+            for i, (label, value) in enumerate(details):
+                tk.Label(details_frame, text=label, font=("Arial", 10, "bold")).grid(row=i, column=0, padx=10, pady=5, sticky=tk.W)
+                tk.Label(details_frame, text=value, font=("Arial", 10)).grid(row=i, column=1, padx=10, pady=5, sticky=tk.W)
+            
+            tk.Button(details_window, text="Close", command=details_window.destroy,
+                     bg="#95a5a6", fg="white", width=15).pack(pady=20)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load details: {str(e)}")
     
     def delete_payment(self):
         """Delete selected payment"""
@@ -335,7 +429,56 @@ class PendingWindow:
         if not selected:
             messagebox.showwarning("Warning", "Please select a payment to delete")
             return
-        messagebox.showinfo("Coming Soon", "Delete feature coming soon!")
+        
+        item = self.tree.item(selected[0])
+        payment_id = item['values'][0]
+        customer_name = item['values'][1]
+        amount = item['values'][4]
+        
+        if messagebox.askyesno("Confirm Delete", 
+                              f"Are you sure you want to delete payment of {amount} from {customer_name}?\n\nThis action cannot be undone."):
+            try:
+                conn = sqlite3.connect('contractormitra.db')
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM payments WHERE id = ?", (payment_id,))
+                conn.commit()
+                conn.close()
+                
+                messagebox.showinfo("Success", "Payment deleted successfully!")
+                self.load_payments()
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete: {str(e)}")
+    
+    def export_to_excel(self):
+        """Export payments to Excel"""
+        try:
+            import pandas as pd
+        except ImportError:
+            messagebox.showerror("Error", "pandas library not installed.\nPlease run: pip install pandas openpyxl")
+            return
+        
+        try:
+            conn = sqlite3.connect('contractormitra.db')
+            query = '''
+                SELECT p.id, c.name as customer, p.quotation_id, p.due_date,
+                       p.amount, p.paid_amount, p.pending_amount, p.status,
+                       p.payment_date, p.reference_no
+                FROM payments p
+                LEFT JOIN customers c ON p.customer_id = c.id
+                ORDER BY p.due_date DESC
+            '''
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            
+            from datetime import datetime
+            filename = f"payments_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            df.to_excel(filename, index=False)
+            
+            messagebox.showinfo("Success", f"Exported to {filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to export: {str(e)}")
 
 if __name__ == "__main__":
     root = tk.Tk()
