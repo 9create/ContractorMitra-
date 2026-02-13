@@ -267,7 +267,7 @@ class PDFGenerator:
         # Similar to above but for reports
         pass
     
-    # ============ NEW FUNCTION FOR AI QUOTE GENERATOR ============
+    # ============ AI QUOTE GENERATOR FUNCTION ============
     def generate_quotation_pdf_from_dict(self, quote_data, output_path="quotation.pdf"):
         """Generate PDF from dictionary data (for AI quotes)"""
         try:
@@ -312,7 +312,7 @@ class PDFGenerator:
             story.append(Spacer(1, 20))
             
             # Items Table
-            table_data = [['Sr.No', 'Description', 'Qty', 'Unit', 'Rate (₹)', 'Amount (₹)']]
+            table_data = [['Sr.No', 'Description', 'Qty', 'Unit', 'Rate (Rs.)', 'Amount (Rs.)']]
             
             for idx, item in enumerate(quote_data['items'], 1):
                 table_data.append([
@@ -320,14 +320,14 @@ class PDFGenerator:
                     item['name'],
                     f"{item['quantity']:.0f}",
                     item['unit'],
-                    f"{item['rate']:,.2f}",
-                    f"{item['amount']:,.2f}"
+                    f"Rs. {item['rate']:,.2f}",
+                    f"Rs. {item['amount']:,.2f}"
                 ])
             
             # Totals
-            table_data.append(['', '', '', '', 'Sub Total:', f"₹ {quote_data['subtotal']:,.2f}"])
-            table_data.append(['', '', '', '', 'GST @ 18%:', f"₹ {quote_data['gst_amount']:,.2f}"])
-            table_data.append(['', '', '', '', 'Grand Total:', f"₹ {quote_data['grand_total']:,.2f}"])
+            table_data.append(['', '', '', '', 'Sub Total:', f"Rs. {quote_data['subtotal']:,.2f}"])
+            table_data.append(['', '', '', '', 'GST @ 18%:', f"Rs. {quote_data['gst_amount']:,.2f}"])
+            table_data.append(['', '', '', '', 'Grand Total:', f"Rs. {quote_data['grand_total']:,.2f}"])
             
             table = Table(table_data, colWidths=[40, 200, 50, 50, 80, 80])
             table.setStyle(TableStyle([
