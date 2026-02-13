@@ -1,484 +1,268 @@
+"""
+PENDING PAYMENTS WINDOW - ContractorMitra
+Modern Apple-style pending payments tracker
+Version: 3.0.0 (Clean UI Edition)
+"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
+
+class ModernStyle:
+    BG_COLOR = "#f5f5f7"
+    CARD_BG = "white"
+    TEXT_PRIMARY = "#1d1d1f"
+    TEXT_SECONDARY = "#86868b"
+    ACCENT_BLUE = "#3498db"
+    ACCENT_GREEN = "#2ecc71"
+    ACCENT_ORANGE = "#f39c12"
+    ACCENT_PURPLE = "#9b59b6"
+    ACCENT_RED = "#e74c3c"
+    
+    FONT_HEADER = ("SF Pro Display", 18, "bold")
+    FONT_TITLE = ("SF Pro Display", 16, "bold")
+    FONT_NORMAL = ("SF Pro Text", 11)
+    FONT_SMALL = ("SF Pro Text", 10)
+
 
 class PendingWindow:
     def __init__(self, parent):
         self.parent = parent
         self.window = tk.Toplevel(parent)
         self.window.title("Pending Payments - ContractorMitra")
-        self.window.geometry("1000x600")
+        self.window.geometry("1100x650")
+        self.window.configure(bg=ModernStyle.BG_COLOR)
         
-        # Initialize UI
+        self.center_window()
         self.setup_ui()
         self.load_payments()
     
+    def center_window(self):
+        self.window.update_idletasks()
+        width = self.window.winfo_width()
+        height = self.window.winfo_height()
+        x = (self.window.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.window.winfo_screenheight() // 2) - (height // 2)
+        self.window.geometry(f'{width}x{height}+{x}+{y}')
+    
+    def create_modern_button(self, parent, text, command, color=ModernStyle.ACCENT_BLUE, width=120):
+        btn_frame = tk.Frame(parent, bg=ModernStyle.BG_COLOR)
+        canvas = tk.Canvas(btn_frame, width=width, height=35, 
+                          highlightthickness=0, bg=ModernStyle.BG_COLOR)
+        canvas.pack()
+        
+        def draw_rect(fill_color):
+            canvas.delete("all")
+            canvas.create_rounded_rect(2, 2, width-2, 33, 8, fill=fill_color, outline="")
+            canvas.create_text(width//2, 18, text=text, fill="white", font=ModernStyle.FONT_SMALL)
+        
+        def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
+            points = [x1+r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y2-r, 
+                     x2, y2, x2-r, y2, x1+r, y2, x1, y2, x1, y2-r, 
+                     x1, y1+r, x1, y1]
+            canvas.create_polygon(points, smooth=True, **kwargs)
+        
+        canvas.create_rounded_rect = create_rounded_rect.__get__(canvas)
+        draw_rect(color)
+        
+        def on_enter(e): draw_rect(self.darken_color(color))
+        def on_leave(e): draw_rect(color)
+        
+        canvas.bind("<Enter>", on_enter)
+        canvas.bind("<Leave>", on_leave)
+        canvas.bind("<Button-1>", lambda e: command())
+        return btn_frame
+    
+    def darken_color(self, color):
+        color = color.lstrip('#')
+        r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
+        r, g, b = max(0, r-20), max(0, g-20), max(0, b-20)
+        return f"#{r:02x}{g:02x}{b:02x}"
+    
     def setup_ui(self):
-        """Setup Pending Payments UI"""
-        # Main container
-        main_frame = tk.Frame(self.window)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        main_frame = tk.Frame(self.window, bg=ModernStyle.BG_COLOR)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=30)
         
         # Header
-        header_frame = tk.Frame(main_frame)
-        header_frame.pack(fill=tk.X, pady=(0, 10))
+        header_frame = tk.Frame(main_frame, bg=ModernStyle.BG_COLOR)
+        header_frame.pack(fill=tk.X, pady=(0, 20))
         
-        tk.Label(header_frame, text="PENDING PAYMENTS", 
-                font=("Arial", 16, "bold"), fg="#2c3e50").pack(side=tk.LEFT)
+        title = tk.Label(header_frame, text="💰 Pending Payments", 
+                        font=ModernStyle.FONT_HEADER,
+                        fg=ModernStyle.TEXT_PRIMARY, bg=ModernStyle.BG_COLOR)
+        title.pack(side=tk.LEFT)
         
-        # Summary Frame
-        summary_frame = tk.Frame(main_frame, bg="#f0f0f0", relief=tk.GROOVE, bd=2)
-        summary_frame.pack(fill=tk.X, pady=(0, 10))
+        # Summary card
+        summary_card = tk.Frame(main_frame, bg="white", relief=tk.FLAT)
+        summary_card.pack(fill=tk.X, pady=(0, 20))
         
-        self.total_pending_var = tk.StringVar(value="₹ 0.00")
-        self.total_overdue_var = tk.StringVar(value="₹ 0.00")
+        summary_inner = tk.Frame(summary_card, bg="white")
+        summary_inner.pack(fill=tk.X, padx=20, pady=15)
         
-        tk.Label(summary_frame, text="Total Pending:", font=("Arial", 12, "bold"), bg="#f0f0f0").pack(side=tk.LEFT, padx=20, pady=10)
-        tk.Label(summary_frame, textvariable=self.total_pending_var, font=("Arial", 12, "bold"), fg="#e74c3c", bg="#f0f0f0").pack(side=tk.LEFT, padx=5, pady=10)
+        self.total_pending_var = tk.StringVar(value="Rs. 0.00")
+        self.total_overdue_var = tk.StringVar(value="Rs. 0.00")
         
-        tk.Label(summary_frame, text="Total Overdue:", font=("Arial", 12, "bold"), bg="#f0f0f0").pack(side=tk.LEFT, padx=20, pady=10)
-        tk.Label(summary_frame, textvariable=self.total_overdue_var, font=("Arial", 12, "bold"), fg="#c0392b", bg="#f0f0f0").pack(side=tk.LEFT, padx=5, pady=10)
+        pending_label = tk.Label(summary_inner, text="Total Pending:", 
+                               font=ModernStyle.FONT_NORMAL,
+                               fg=ModernStyle.TEXT_SECONDARY, bg="white")
+        pending_label.pack(side=tk.LEFT, padx=(0, 5))
         
-        # Search and buttons frame
-        search_frame = tk.Frame(main_frame)
-        search_frame.pack(fill=tk.X, pady=(0, 10))
+        pending_value = tk.Label(summary_inner, textvariable=self.total_pending_var,
+                               font=ModernStyle.FONT_TITLE,
+                               fg=ModernStyle.ACCENT_RED, bg="white")
+        pending_value.pack(side=tk.LEFT, padx=(0, 20))
         
-        tk.Label(search_frame, text="Search:").pack(side=tk.LEFT, padx=(0, 10))
+        overdue_label = tk.Label(summary_inner, text="Overdue:", 
+                               font=ModernStyle.FONT_NORMAL,
+                               fg=ModernStyle.TEXT_SECONDARY, bg="white")
+        overdue_label.pack(side=tk.LEFT, padx=(0, 5))
+        
+        overdue_value = tk.Label(summary_inner, textvariable=self.total_overdue_var,
+                               font=ModernStyle.FONT_TITLE,
+                               fg=ModernStyle.ACCENT_ORANGE, bg="white")
+        overdue_value.pack(side=tk.LEFT)
+        
+        # Search frame
+        search_frame = tk.Frame(main_frame, bg=ModernStyle.BG_COLOR)
+        search_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        search_label = tk.Label(search_frame, text="🔍 Search:", 
+                               font=ModernStyle.FONT_NORMAL,
+                               fg=ModernStyle.TEXT_SECONDARY, bg=ModernStyle.BG_COLOR)
+        search_label.pack(side=tk.LEFT, padx=(0, 10))
+        
         self.search_var = tk.StringVar()
-        tk.Entry(search_frame, textvariable=self.search_var, width=30).pack(side=tk.LEFT, padx=(0, 10))
-        self.search_var.trace('w', self.on_search)
+        search_entry = tk.Entry(search_frame, textvariable=self.search_var, 
+                               font=ModernStyle.FONT_NORMAL,
+                               relief=tk.FLAT, highlightthickness=1,
+                               highlightcolor=ModernStyle.ACCENT_BLUE,
+                               highlightbackground="#ddd", width=30)
+        search_entry.pack(side=tk.LEFT, padx=(0, 10))
+        search_entry.bind("<KeyRelease>", self.on_search)
         
-        tk.Button(search_frame, text="+ Add Payment", command=self.add_payment,
-                 bg="#27ae60", fg="white").pack(side=tk.LEFT, padx=(0, 10))
+        add_btn = self.create_modern_button(search_frame, "+ Add Payment", 
+                                          self.add_payment, ModernStyle.ACCENT_GREEN)
+        add_btn.pack(side=tk.LEFT, padx=5)
         
-        tk.Button(search_frame, text="Refresh", command=self.load_payments,
-                 bg="#3498db", fg="white").pack(side=tk.LEFT)
+        refresh_btn = self.create_modern_button(search_frame, "🔄 Refresh", 
+                                               self.load_payments, ModernStyle.ACCENT_BLUE)
+        refresh_btn.pack(side=tk.LEFT, padx=5)
         
         # Treeview
-        columns = ("ID", "Customer", "Quotation #", "Due Date", "Amount", "Paid", "Pending", "Status", "Reference")
-        self.tree = ttk.Treeview(main_frame, columns=columns, show="headings", height=20)
+        self.setup_treeview(main_frame)
         
-        # Define headings and columns
-        column_widths = [50, 200, 100, 100, 120, 120, 120, 100, 150]
+        # Button frame
+        button_frame = tk.Frame(main_frame, bg=ModernStyle.BG_COLOR)
+        button_frame.pack(fill=tk.X, pady=15)
+        
+        buttons = [
+            ("✅ Mark Paid", self.mark_as_paid, ModernStyle.ACCENT_GREEN),
+            ("👁️ View Details", self.view_details, ModernStyle.ACCENT_BLUE),
+            ("🗑️ Delete", self.delete_payment, ModernStyle.ACCENT_RED),
+            ("📊 Export", self.export_excel, ModernStyle.ACCENT_PURPLE),
+            ("❌ Close", self.window.destroy, ModernStyle.TEXT_SECONDARY)
+        ]
+        
+        for text, cmd, color in buttons:
+            btn = self.create_modern_button(button_frame, text, cmd, color, 110)
+            btn.pack(side=tk.LEFT, padx=5)
+    
+    def setup_treeview(self, parent):
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview", 
+                       background="white",
+                       foreground=ModernStyle.TEXT_PRIMARY,
+                       rowheight=30,
+                       fieldbackground="white",
+                       font=ModernStyle.FONT_NORMAL)
+        style.configure("Treeview.Heading",
+                       background=ModernStyle.BG_COLOR,
+                       foreground=ModernStyle.TEXT_PRIMARY,
+                       font=("SF Pro Text", 11, "bold"))
+        style.map("Treeview", background=[("selected", ModernStyle.ACCENT_BLUE)])
+        
+        columns = ("ID", "Customer", "Invoice #", "Due Date", "Amount", "Paid", "Pending", "Status")
+        self.tree = ttk.Treeview(parent, columns=columns, show="headings", 
+                                 height=15, style="Treeview")
+        
+        column_widths = [50, 200, 100, 100, 120, 120, 120, 100]
         for col, width in zip(columns, column_widths):
             self.tree.heading(col, text=col)
             self.tree.column(col, width=width)
         
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=self.tree.yview)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
         
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # Button frame
-        button_frame = tk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=10)
-        
-        tk.Button(button_frame, text="Mark as Paid", command=self.mark_as_paid,
-                 bg="#27ae60", fg="white", width=15).pack(side=tk.LEFT, padx=5)
-        
-        tk.Button(button_frame, text="View Details", command=self.view_details,
-                 bg="#3498db", fg="white", width=15).pack(side=tk.LEFT, padx=5)
-        
-        tk.Button(button_frame, text="Delete", command=self.delete_payment,
-                 bg="#e74c3c", fg="white", width=15).pack(side=tk.LEFT, padx=5)
-        
-        tk.Button(button_frame, text="Export to Excel", command=self.export_to_excel,
-                 bg="#9b59b6", fg="white", width=15).pack(side=tk.LEFT, padx=5)
-        
-        tk.Button(button_frame, text="Close", command=self.window.destroy,
-                 bg="#95a5a6", fg="white", width=15).pack(side=tk.LEFT, padx=5)
     
     def load_payments(self):
-        """Load pending payments from database"""
-        # Clear existing items
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        try:
-            conn = sqlite3.connect('contractormitra.db')
-            cursor = conn.cursor()
+        # Demo data - replace with actual DB query
+        demo_data = [
+            (1, "Rajesh Electricals", "INV-001", "2026-03-15", 25000, 10000, 15000, "Partial"),
+            (2, "Gupta Enterprises", "INV-002", "2026-02-28", 18000, 0, 18000, "Pending"),
+            (3, "Sharma Construction", "INV-003", "2026-02-10", 32000, 32000, 0, "Paid"),
+        ]
+        
+        total_pending = 0
+        total_overdue = 0
+        today = datetime.now().date()
+        
+        for row in demo_data:
+            due_date = datetime.strptime(row[3], "%Y-%m-%d").date()
+            pending = row[6]
+            total_pending += pending
             
-            # Get all pending payments
-            cursor.execute('''
-                SELECT p.id, c.name, p.quotation_id, p.due_date, 
-                       p.amount, p.paid_amount, p.pending_amount, p.status, p.reference_no
-                FROM payments p
-                LEFT JOIN customers c ON p.customer_id = c.id
-                WHERE p.status IN ('pending', 'partial')
-                ORDER BY p.due_date ASC
-            ''')
+            if due_date < today and row[7] in ["Pending", "Partial"]:
+                total_overdue += pending
             
-            payments = cursor.fetchall()
-            conn.close()
-            
-            total_pending = 0
-            total_overdue = 0
-            today = datetime.now().date()
-            
-            for payment in payments:
-                due_date = payment[3]
-                pending_amount = payment[6]
-                total_pending += pending_amount
-                
-                # Check if overdue
-                if due_date:
-                    try:
-                        due_date_obj = datetime.strptime(due_date, '%Y-%m-%d').date()
-                        if due_date_obj < today and payment[7] in ['pending', 'partial']:
-                            total_overdue += pending_amount
-                    except:
-                        pass
-                
-                # Insert into tree
-                self.tree.insert("", "end", values=(
-                    payment[0],
-                    payment[1] or "N/A",
-                    payment[2] or "N/A",
-                    due_date,
-                    f"₹ {payment[4]:,.2f}",
-                    f"₹ {payment[5]:,.2f}",
-                    f"₹ {pending_amount:,.2f}",
-                    payment[7].title(),
-                    payment[8] or "-"
-                ))
-            
-            # Update summary
-            self.total_pending_var.set(f"₹ {total_pending:,.2f}")
-            self.total_overdue_var.set(f"₹ {total_overdue:,.2f}")
-            
-        except Exception as e:
-            print(f"Error loading payments: {e}")
+            self.tree.insert("", "end", values=row)
+        
+        self.total_pending_var.set(f"Rs. {total_pending:,.2f}")
+        self.total_overdue_var.set(f"Rs. {total_overdue:,.2f}")
     
-    def focus_next_widget(self, event):
-        event.widget.tk_focusNext().focus()
-        return 'break'
-    
-    def show_paste_menu(self, event):
-        widget = event.widget
-        menu = tk.Menu(self.window, tearoff=0)
-        menu.add_command(label="Paste", command=lambda: self.paste_text(widget))
-        menu.tk_popup(event.x_root, event.y_root)
-        menu.grab_release()
-        return 'break'
-    
-    def paste_text(self, widget):
-        try:
-            text = self.window.clipboard_get()
-            widget.insert(tk.INSERT, text)
-        except tk.TclError:
-            pass
-    
-    def on_search(self, *args):
-        """Search payments"""
+    def on_search(self, event=None):
         search_term = self.search_var.get().lower()
-        self.load_payments()  # Simple reload for now
+        self.load_payments()
+        if not search_term:
+            return
+        for item in self.tree.get_children():
+            values = self.tree.item(item)['values']
+            if not any(search_term in str(v).lower() for v in values[1:3]):
+                self.tree.delete(item)
     
     def add_payment(self):
-        """Add new payment"""
-        add_window = tk.Toplevel(self.window)
-        add_window.title("Add Payment - ContractorMitra")
-        add_window.geometry("500x550")
-        
-        tk.Label(add_window, text="ADD NEW PAYMENT", 
-                font=("Arial", 14, "bold"), fg="#2c3e50").pack(pady=(10, 20))
-        
-        form_frame = tk.Frame(add_window)
-        form_frame.pack(fill=tk.BOTH, expand=True, padx=30)
-        
-        # Customer selection
-        tk.Label(form_frame, text="Customer *").grid(row=0, column=0, padx=10, pady=10, sticky=tk.W)
-        
-        # Get customers from database
-        conn = sqlite3.connect('contractormitra.db')
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, name FROM customers ORDER BY name")
-        customers = cursor.fetchall()
-        conn.close()
-        
-        customer_names = [f"{c[0]} - {c[1]}" for c in customers]
-        customer_combo = ttk.Combobox(form_frame, values=customer_names, width=35)
-        customer_combo.grid(row=0, column=1, padx=10, pady=10, sticky=tk.W)
-        
-        # Quotation selection (optional)
-        tk.Label(form_frame, text="Quotation #").grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
-        quotation_entry = tk.Entry(form_frame, width=35)
-        quotation_entry.grid(row=1, column=1, padx=10, pady=10, sticky=tk.W)
-        
-        # Amount
-        tk.Label(form_frame, text="Amount (₹) *").grid(row=2, column=0, padx=10, pady=10, sticky=tk.W)
-        amount_entry = tk.Entry(form_frame, width=35)
-        amount_entry.grid(row=2, column=1, padx=10, pady=10, sticky=tk.W)
-        amount_entry.bind('<Tab>', self.focus_next_widget)
-        amount_entry.bind('<Button-3>', self.show_paste_menu)
-        
-        # Paid Amount
-        tk.Label(form_frame, text="Paid Amount (₹)").grid(row=3, column=0, padx=10, pady=10, sticky=tk.W)
-        paid_entry = tk.Entry(form_frame, width=35)
-        paid_entry.insert(0, "0")
-        paid_entry.grid(row=3, column=1, padx=10, pady=10, sticky=tk.W)
-        paid_entry.bind('<Tab>', self.focus_next_widget)
-        paid_entry.bind('<Button-3>', self.show_paste_menu)
-        
-        # Due Date
-        tk.Label(form_frame, text="Due Date *").grid(row=4, column=0, padx=10, pady=10, sticky=tk.W)
-        due_date_entry = tk.Entry(form_frame, width=35)
-        due_date_entry.insert(0, datetime.now().strftime('%Y-%m-%d'))
-        due_date_entry.grid(row=4, column=1, padx=10, pady=10, sticky=tk.W)
-        due_date_entry.bind('<Tab>', self.focus_next_widget)
-        due_date_entry.bind('<Button-3>', self.show_paste_menu)
-        
-        # Reference No
-        tk.Label(form_frame, text="Reference No").grid(row=5, column=0, padx=10, pady=10, sticky=tk.W)
-        ref_entry = tk.Entry(form_frame, width=35)
-        ref_entry.grid(row=5, column=1, padx=10, pady=10, sticky=tk.W)
-        ref_entry.bind('<Tab>', self.focus_next_widget)
-        ref_entry.bind('<Button-3>', self.show_paste_menu)
-        
-        # Remarks
-        tk.Label(form_frame, text="Remarks").grid(row=6, column=0, padx=10, pady=10, sticky=tk.W)
-        remarks_entry = tk.Entry(form_frame, width=35)
-        remarks_entry.grid(row=6, column=1, padx=10, pady=10, sticky=tk.W)
-        remarks_entry.bind('<Tab>', self.focus_next_widget)
-        remarks_entry.bind('<Button-3>', self.show_paste_menu)
-        
-        def save_payment():
-            # Validation
-            if not customer_combo.get():
-                messagebox.showerror("Error", "Please select a customer")
-                return
-            
-            try:
-                amount = float(amount_entry.get() or 0)
-                if amount <= 0:
-                    messagebox.showerror("Error", "Amount must be greater than 0")
-                    return
-            except ValueError:
-                messagebox.showerror("Error", "Invalid amount")
-                return
-            
-            try:
-                paid_amount = float(paid_entry.get() or 0)
-            except ValueError:
-                paid_amount = 0
-            
-            if not due_date_entry.get():
-                messagebox.showerror("Error", "Please enter due date")
-                return
-            
-            # Extract customer ID
-            customer_id = int(customer_combo.get().split(' - ')[0])
-            
-            # Calculate pending amount
-            pending_amount = amount - paid_amount
-            status = 'paid' if pending_amount <= 0 else 'partial' if paid_amount > 0 else 'pending'
-            
-            try:
-                conn = sqlite3.connect('contractormitra.db')
-                cursor = conn.cursor()
-                
-                cursor.execute('''
-                    INSERT INTO payments (customer_id, quotation_id, amount, paid_amount, pending_amount, 
-                                        due_date, status, reference_no, remarks)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    customer_id,
-                    quotation_entry.get() or None,
-                    amount,
-                    paid_amount,
-                    pending_amount,
-                    due_date_entry.get(),
-                    status,
-                    ref_entry.get() or None,
-                    remarks_entry.get() or None
-                ))
-                
-                conn.commit()
-                conn.close()
-                
-                messagebox.showinfo("Success", "Payment added successfully!")
-                add_window.destroy()
-                self.load_payments()
-                
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to save payment: {str(e)}")
-        
-        # Buttons
-        button_frame = tk.Frame(add_window)
-        button_frame.pack(pady=20)
-        
-        tk.Button(button_frame, text="Save Payment", command=save_payment,
-                 bg="#27ae60", fg="white", width=15).pack(side=tk.LEFT, padx=10)
-        
-        tk.Button(button_frame, text="Cancel", command=add_window.destroy,
-                 bg="#95a5a6", fg="white", width=15).pack(side=tk.LEFT, padx=10)
+        messagebox.showinfo("Coming Soon", "Add Payment form will be modernized in Phase 3")
     
     def mark_as_paid(self):
-        """Mark selected payment as paid"""
         selected = self.tree.selection()
         if not selected:
             messagebox.showwarning("Warning", "Please select a payment to mark as paid")
             return
-        
-        # Get payment ID
-        item = self.tree.item(selected[0])
-        payment_id = item['values'][0]
-        customer_name = item['values'][1]
-        pending_amount = item['values'][6].replace('₹', '').replace(',', '').strip()
-        
-        # Ask for confirmation
-        if not messagebox.askyesno("Confirm", 
-                                  f"Mark payment of ₹{pending_amount} from {customer_name} as paid?"):
-            return
-        
-        try:
-            conn = sqlite3.connect('contractormitra.db')
-            cursor = conn.cursor()
-            
-            # Update payment status
-            cursor.execute('''
-                UPDATE payments 
-                SET status = 'paid', 
-                    paid_amount = amount,
-                    pending_amount = 0,
-                    payment_date = ?
-                WHERE id = ?
-            ''', (datetime.now().strftime('%Y-%m-%d'), payment_id))
-            
-            conn.commit()
-            conn.close()
-            
-            messagebox.showinfo("Success", "Payment marked as paid successfully!")
-            self.load_payments()
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to mark as paid: {str(e)}")
+        messagebox.showinfo("Coming Soon", "Mark as Paid will be modernized in Phase 3")
     
     def view_details(self):
-        """View payment details"""
         selected = self.tree.selection()
         if not selected:
             messagebox.showwarning("Warning", "Please select a payment to view")
             return
-        
-        # Get payment ID
-        item = self.tree.item(selected[0])
-        payment_id = item['values'][0]
-        
-        try:
-            conn = sqlite3.connect('contractormitra.db')
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT p.*, c.name, c.phone, c.email 
-                FROM payments p
-                LEFT JOIN customers c ON p.customer_id = c.id
-                WHERE p.id = ?
-            ''', (payment_id,))
-            
-            payment = cursor.fetchone()
-            conn.close()
-            
-            if not payment:
-                messagebox.showerror("Error", "Payment not found")
-                return
-            
-            # Show details in new window
-            details_window = tk.Toplevel(self.window)
-            details_window.title("Payment Details")
-            details_window.geometry("500x500")
-            
-            tk.Label(details_window, text="PAYMENT DETAILS", 
-                    font=("Arial", 14, "bold"), fg="#2c3e50").pack(pady=(10, 20))
-            
-            details_frame = tk.Frame(details_window)
-            details_frame.pack(fill=tk.BOTH, expand=True, padx=30)
-            
-            # Payment details
-            details = [
-                ("Payment ID:", payment[0]),
-                ("Customer:", payment[12] or "N/A"),
-                ("Phone:", payment[13] or "N/A"),
-                ("Email:", payment[14] or "N/A"),
-                ("Amount:", f"₹ {payment[3]:,.2f}"),
-                ("Paid Amount:", f"₹ {payment[4]:,.2f}"),
-                ("Pending Amount:", f"₹ {payment[5]:,.2f}"),
-                ("Due Date:", payment[6]),
-                ("Payment Date:", payment[7] or "Not paid"),
-                ("Status:", payment[8].title()),
-                ("Reference No:", payment[9] or "-"),
-                ("Remarks:", payment[10] or "-"),
-                ("Created:", payment[11])
-            ]
-            
-            for i, (label, value) in enumerate(details):
-                tk.Label(details_frame, text=label, font=("Arial", 10, "bold")).grid(row=i, column=0, padx=10, pady=5, sticky=tk.W)
-                tk.Label(details_frame, text=value, font=("Arial", 10)).grid(row=i, column=1, padx=10, pady=5, sticky=tk.W)
-            
-            tk.Button(details_window, text="Close", command=details_window.destroy,
-                     bg="#95a5a6", fg="white", width=15).pack(pady=20)
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load details: {str(e)}")
+        messagebox.showinfo("Coming Soon", "View Details will be modernized in Phase 3")
     
     def delete_payment(self):
-        """Delete selected payment"""
         selected = self.tree.selection()
         if not selected:
             messagebox.showwarning("Warning", "Please select a payment to delete")
             return
-        
-        item = self.tree.item(selected[0])
-        payment_id = item['values'][0]
-        customer_name = item['values'][1]
-        amount = item['values'][4]
-        
-        if messagebox.askyesno("Confirm Delete", 
-                              f"Are you sure you want to delete payment of {amount} from {customer_name}?\n\nThis action cannot be undone."):
-            try:
-                conn = sqlite3.connect('contractormitra.db')
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM payments WHERE id = ?", (payment_id,))
-                conn.commit()
-                conn.close()
-                
-                messagebox.showinfo("Success", "Payment deleted successfully!")
-                self.load_payments()
-                
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to delete: {str(e)}")
+        messagebox.showinfo("Coming Soon", "Delete Payment will be modernized in Phase 3")
     
-    def export_to_excel(self):
-        """Export payments to Excel"""
-        try:
-            import pandas as pd
-        except ImportError:
-            messagebox.showerror("Error", "pandas library not installed.\nPlease run: pip install pandas openpyxl")
-            return
-        
-        try:
-            conn = sqlite3.connect('contractormitra.db')
-            query = '''
-                SELECT p.id, c.name as customer, p.quotation_id, p.due_date,
-                       p.amount, p.paid_amount, p.pending_amount, p.status,
-                       p.payment_date, p.reference_no
-                FROM payments p
-                LEFT JOIN customers c ON p.customer_id = c.id
-                ORDER BY p.due_date DESC
-            '''
-            df = pd.read_sql_query(query, conn)
-            conn.close()
-            
-            from datetime import datetime
-            filename = f"payments_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            df.to_excel(filename, index=False)
-            
-            messagebox.showinfo("Success", f"Exported to {filename}")
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to export: {str(e)}")
+    def export_excel(self):
+        messagebox.showinfo("Coming Soon", "Excel Export will be modernized in Phase 3")
+
 
 if __name__ == "__main__":
     root = tk.Tk()
