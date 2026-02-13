@@ -399,18 +399,18 @@ class PendingWindow:
             # Payment details
             details = [
                 ("Payment ID:", payment[0]),
-                ("Customer:", payment[13]),
-                ("Phone:", payment[14] or "N/A"),
-                ("Email:", payment[15] or "N/A"),
-                ("Amount:", f"₹ {payment[4]:,.2f}"),
-                ("Paid Amount:", f"₹ {payment[5]:,.2f}"),
-                ("Pending Amount:", f"₹ {payment[6]:,.2f}"),
-                ("Due Date:", payment[7]),
-                ("Payment Date:", payment[8] or "Not paid"),
-                ("Status:", payment[9].title()),
-                ("Reference No:", payment[10] or "-"),
-                ("Remarks:", payment[11] or "-"),
-                ("Created:", payment[12])
+                ("Customer:", payment[12] or "N/A"),
+                ("Phone:", payment[13] or "N/A"),
+                ("Email:", payment[14] or "N/A"),
+                ("Amount:", f"₹ {payment[3]:,.2f}"),
+                ("Paid Amount:", f"₹ {payment[4]:,.2f}"),
+                ("Pending Amount:", f"₹ {payment[5]:,.2f}"),
+                ("Due Date:", payment[6]),
+                ("Payment Date:", payment[7] or "Not paid"),
+                ("Status:", payment[8].title()),
+                ("Reference No:", payment[9] or "-"),
+                ("Remarks:", payment[10] or "-"),
+                ("Created:", payment[11])
             ]
             
             for i, (label, value) in enumerate(details):
