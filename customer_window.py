@@ -10,7 +10,7 @@ class CustomerWindow:
         self.window = tk.Toplevel(parent)
         self.window.title("Customer Management - ContractorMitra")
         self.window.geometry("900x600")
-         # Initialize
+        # Initialize
          self.setup_ui()
         if mode == 'view':
             self.load_customers()
