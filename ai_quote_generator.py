@@ -56,7 +56,6 @@ class AIQuoteGenerator:
         y = (self.window.winfo_screenheight() // 2) - (h // 2)
         self.window.geometry(f'{w}x{h}+{x}+{y}')
 
-    # ---------- MODERN BUTTON ----------
     def create_modern_button(self, parent, text, command, color=ModernStyle.ACCENT_BLUE, width=140):
         frame = tk.Frame(parent, bg=ModernStyle.BG_COLOR)
         canvas = tk.Canvas(frame, width=width, height=35, highlightthickness=0, bg=ModernStyle.BG_COLOR)
@@ -82,7 +81,6 @@ class AIQuoteGenerator:
         r,g,b = int(c[0:2],16), int(c[2:4],16), int(c[4:6],16)
         return f"#{max(0,r-20):02x}{max(0,g-20):02x}{max(0,b-20):02x}"
 
-    # ---------- UI ----------
     def setup_ui(self):
         main = tk.Frame(self.window, bg=ModernStyle.BG_COLOR)
         main.pack(fill=tk.BOTH, expand=True, padx=30, pady=30)
@@ -223,7 +221,6 @@ class AIQuoteGenerator:
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-    # ---------- LOAD DATA ----------
     def load_materials(self):
         try:
             conn = sqlite3.connect('contractormitra.db')
@@ -280,7 +277,48 @@ class AIQuoteGenerator:
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ---------- AI RULE ENGINE ----------
+    def extract_qty(self, text, keys):
+        q=0
+        for k in keys:
+            m = re.findall(r'(\d+)\s*'+re.escape(k), text)
+            for x in m:
+                q+=int(x)
+        return q
+
+    def add_item(self, name, desc, qty, unit, rate):
+        if qty<=0:
+            return
+        for item in self.items:
+            if item['name']==name and item['rate']==rate:
+                item['quantity']+=qty
+                item['amount']=item['quantity']*rate
+                self.refresh_tree()
+                self.status_var.set(f"🔄 Updated {name} +{qty}")
+                return
+        amt = qty*rate
+        self.items.append({'name':name,'description':desc,'quantity':qty,
+                           'unit':unit,'rate':rate,'amount':amt})
+        self.tree.insert("","end", values=(name[:20], desc[:30], qty, unit,
+                                           f"Rs. {rate:,.2f}", f"Rs. {amt:,.2f}", "18%"))
+        self.status_var.set(f"✅ Added {name} x{qty}")
+
+    def refresh_tree(self):
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        for it in self.items:
+            self.tree.insert("","end", values=(it['name'][:20], it['description'][:30],
+                                               it['quantity'], it['unit'],
+                                               f"Rs. {it['rate']:,.2f}",
+                                               f"Rs. {it['amount']:,.2f}", "18%"))
+
+    def calc_totals(self):
+        sub = sum(i['amount'] for i in self.items)
+        gst = sub*0.18
+        tot = sub+gst
+        self.subtotal_var.set(f"Rs. {sub:,.2f}")
+        self.gst_var.set(f"Rs. {gst:,.2f}")
+        self.total_var.set(f"Rs. {tot:,.2f}")
+
     def generate_ai_quote(self):
         if not self.selected_customer_id:
             messagebox.showwarning("Warning", "❌ Select a customer first")
@@ -373,49 +411,6 @@ class AIQuoteGenerator:
         else:
             self.status_var.set("❌ No items matched – be more descriptive")
 
-    def extract_qty(self, text, keys):
-        q=0
-        for k in keys:
-            m = re.findall(r'(\d+)\s*'+re.escape(k), text)
-            for x in m:
-                q+=int(x)
-        return q
-
-    def add_item(self, name, desc, qty, unit, rate):
-        if qty<=0:
-            return
-        for item in self.items:
-            if item['name']==name and item['rate']==rate:
-                item['quantity']+=qty
-                item['amount']=item['quantity']*rate
-                self.refresh_tree()
-                self.status_var.set(f"🔄 Updated {name} +{qty}")
-                return
-        amt = qty*rate
-        self.items.append({'name':name,'description':desc,'quantity':qty,
-                           'unit':unit,'rate':rate,'amount':amt})
-        self.tree.insert("","end", values=(name[:20], desc[:30], qty, unit,
-                                           f"Rs. {rate:,.2f}", f"Rs. {amt:,.2f}", "18%"))
-        self.status_var.set(f"✅ Added {name} x{qty}")
-
-    def refresh_tree(self):
-        for i in self.tree.get_children():
-            self.tree.delete(i)
-        for it in self.items:
-            self.tree.insert("","end", values=(it['name'][:20], it['description'][:30],
-                                               it['quantity'], it['unit'],
-                                               f"Rs. {it['rate']:,.2f}",
-                                               f"Rs. {it['amount']:,.2f}", "18%"))
-
-    def calc_totals(self):
-        sub = sum(i['amount'] for i in self.items)
-        gst = sub*0.18
-        tot = sub+gst
-        self.subtotal_var.set(f"Rs. {sub:,.2f}")
-        self.gst_var.set(f"Rs. {gst:,.2f}")
-        self.total_var.set(f"Rs. {tot:,.2f}")
-
-    # ---------- SAVE ----------
     def save_quotation(self):
         if not self.selected_customer_id:
             messagebox.showwarning("Warning","Select customer")
@@ -452,7 +447,6 @@ class AIQuoteGenerator:
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ---------- PDF ----------
     def generate_pdf(self):
         if not self.items:
             messagebox.showwarning("Warning","Generate items first")
@@ -488,7 +482,6 @@ class AIQuoteGenerator:
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ---------- RESET ----------
     def clear_all(self):
         self.project_desc.delete("1.0", tk.END)
         for i in self.tree.get_children():
