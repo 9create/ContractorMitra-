@@ -1,7 +1,36 @@
+"""
+CUSTOMER WINDOW - ContractorMitra
+Modern Apple-style customer management
+Version: 3.0.0 (Clean UI Edition)
+"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
+
+class ModernStyle:
+    """Modern Apple-like style constants"""
+    BG_COLOR = "#f5f5f7"
+    CARD_BG = "white"
+    TEXT_PRIMARY = "#1d1d1f"
+    TEXT_SECONDARY = "#86868b"
+    ACCENT_BLUE = "#3498db"
+    ACCENT_GREEN = "#2ecc71"
+    ACCENT_ORANGE = "#f39c12"
+    ACCENT_PURPLE = "#9b59b6"
+    ACCENT_RED = "#e74c3c"
+    ACCENT_TEAL = "#1abc9c"
+    
+    FONT_HEADER = ("SF Pro Display", 18, "bold")
+    FONT_TITLE = ("SF Pro Display", 16, "bold")
+    FONT_NORMAL = ("SF Pro Text", 11)
+    FONT_SMALL = ("SF Pro Text", 10)
+    
+    PADDING = 15
+    BUTTON_WIDTH = 120
+    BUTTON_HEIGHT = 35
+
 
 class CustomerWindow:
     def __init__(self, parent, mode='view'):
@@ -9,27 +38,84 @@ class CustomerWindow:
         self.mode = mode
         self.window = tk.Toplevel(parent)
         self.window.title("Customer Management - ContractorMitra")
-        self.window.geometry("900x600")
+        self.window.geometry("1000x650")
+        self.window.configure(bg=ModernStyle.BG_COLOR)
+        
+        # Center window
+        self.center_window()
+        
         # Initialize
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-       
-=======
         self.setup_ui()
->>>>>>> Stashed changes
-=======
-        self.setup_ui()
->>>>>>> ea06be45427c8254375ea53032e442481d886d3a
         if mode == 'view':
             self.load_customers()
-
-    def focus_next_widget(self, event):
-        """Tab press karne par next widget pe focus karo"""
-        event.widget.tk_focusNext().focus()
-        return 'break'  # Default Tab behavior rokne ke liye        
+    
+    def center_window(self):
+        """Center window on screen"""
+        self.window.update_idletasks()
+        width = self.window.winfo_width()
+        height = self.window.winfo_height()
+        x = (self.window.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.window.winfo_screenheight() // 2) - (height // 2)
+        self.window.geometry(f'{width}x{height}+{x}+{y}')
+    
+    def create_modern_button(self, parent, text, command, color=ModernStyle.ACCENT_BLUE):
+        """Create a modern rounded button"""
+        btn_frame = tk.Frame(parent, bg=ModernStyle.BG_COLOR)
         
+        canvas = tk.Canvas(btn_frame, width=120, height=35, 
+                          highlightthickness=0, bg=ModernStyle.BG_COLOR)
+        canvas.pack()
+        
+        def draw_rect(fill_color):
+            canvas.delete("all")
+            # Draw rounded rectangle
+            canvas.create_rounded_rect(2, 2, 118, 33, 8, 
+                                      fill=fill_color, outline="")
+            canvas.create_text(60, 18, text=text, fill="white", 
+                             font=ModernStyle.FONT_SMALL)
+        
+        # Define rounded rect method
+        def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
+            points = [x1+r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y2-r, 
+                     x2, y2, x2-r, y2, x1+r, y2, x1, y2, x1, y2-r, 
+                     x1, y1+r, x1, y1]
+            canvas.create_polygon(points, smooth=True, **kwargs)
+        
+        # Monkey patch canvas
+        canvas.create_rounded_rect = create_rounded_rect.__get__(canvas)
+        
+        # Initial draw
+        draw_rect(color)
+        
+        # Hover effects
+        def on_enter(e):
+            draw_rect(self.darken_color(color))
+        
+        def on_leave(e):
+            draw_rect(color)
+        
+        canvas.bind("<Enter>", on_enter)
+        canvas.bind("<Leave>", on_leave)
+        canvas.bind("<Button-1>", lambda e: command())
+        
+        return btn_frame
+    
+    def darken_color(self, color):
+        """Darken hex color for hover effect"""
+        color = color.lstrip('#')
+        r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
+        r = max(0, r - 20)
+        g = max(0, g - 20)
+        b = max(0, b - 20)
+        return f"#{r:02x}{g:02x}{b:02x}"
+    
+    def focus_next_widget(self, event):
+        """Tab navigation"""
+        event.widget.tk_focusNext().focus()
+        return 'break'
+    
     def show_paste_menu(self, event):
-        """Right-click par Paste menu dikhao"""
+        """Right-click paste menu"""
         widget = event.widget
         menu = tk.Menu(self.window, tearoff=0)
         menu.add_command(label="Paste", command=lambda: self.paste_text(widget))
@@ -38,100 +124,89 @@ class CustomerWindow:
         return 'break'
     
     def paste_text(self, widget):
-        """Clipboard se text paste karo"""
+        """Paste from clipboard"""
         try:
             text = self.window.clipboard_get()
             widget.insert(tk.INSERT, text)
         except tk.TclError:
-            pass  # Clipboard empty hai
-
+            pass
+    
     def setup_ui(self):
-        """Setup customer window UI"""
-        # Main container
-        main_frame = tk.Frame(self.window)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        """Setup main UI"""
+        # Main container with padding
+        main_frame = tk.Frame(self.window, bg=ModernStyle.BG_COLOR)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=30)
+        
+        # Header
+        header_frame = tk.Frame(main_frame, bg=ModernStyle.BG_COLOR)
+        header_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        title = tk.Label(header_frame, text="👤 Customers", 
+                        font=ModernStyle.FONT_HEADER,
+                        fg=ModernStyle.TEXT_PRIMARY, bg=ModernStyle.BG_COLOR)
+        title.pack(side=tk.LEFT)
+        
+        if self.mode == 'view':
+            add_btn = self.create_modern_button(header_frame, "+ Add New", 
+                                               self.add_new, ModernStyle.ACCENT_GREEN)
+            add_btn.pack(side=tk.RIGHT, padx=5)
         
         if self.mode == 'add':
             self.setup_add_form(main_frame)
         else:
             self.setup_view_list(main_frame)
     
-    def setup_add_form(self, parent):
-        """Setup add customer form"""
-        tk.Label(parent, text="ADD NEW CUSTOMER", 
-                font=("Arial", 16, "bold"), fg="#2c3e50").pack(pady=(0, 20))
-        
-        form_frame = tk.Frame(parent)
-        form_frame.pack(fill=tk.BOTH, expand=True, padx=50)
-        
-        fields = [
-            ("Customer Name *", "name", True),
-            ("Phone Number *", "phone", True),
-            ("Email Address", "email", False),
-            ("GSTIN Number", "gstin", False),
-            ("Address", "address", False)
-        ]
-        
-        self.entries = {}
-        for i, (label, key, required) in enumerate(fields):
-            tk.Label(form_frame, text=label).grid(row=i, column=0, padx=10, pady=10, sticky=tk.W)
-            
-            if key == 'address':
-                entry = tk.Text(form_frame, height=4, width=40)
-                entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
-                entry.bind('<Tab>', self.focus_next_widget)
-                entry.bind('<Button-3>', self.show_paste_menu)
-                entry.bind('<Button-2>', self.show_paste_menu)  # Mac support
-
-            else:
-                entry = tk.Entry(form_frame, width=40)
-                entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
-                entry.bind('<Tab>', self.focus_next_widget)
-                entry.bind('<Button-3>', self.show_paste_menu)
-                entry.bind('<Button-2>', self.show_paste_menu)  # Mac support
-            self.entries[key] = entry
-        
-        # Buttons
-        button_frame = tk.Frame(parent)
-        button_frame.pack(pady=20)
-        
-        tk.Button(button_frame, text="Save Customer", command=self.save_customer,
-                 bg="#27ae60", fg="white", width=15).pack(side=tk.LEFT, padx=10)
-        
-        tk.Button(button_frame, text="Clear", command=self.clear_form,
-                 bg="#95a5a6", fg="white", width=15).pack(side=tk.LEFT, padx=10)
-        
-        tk.Button(button_frame, text="Close", command=self.window.destroy,
-                 bg="#e74c3c", fg="white", width=15).pack(side=tk.LEFT, padx=10)
-    
     def setup_view_list(self, parent):
         """Setup customer list view"""
         # Search frame
-        search_frame = tk.Frame(parent)
-        search_frame.pack(fill=tk.X, pady=(0, 10))
+        search_frame = tk.Frame(parent, bg=ModernStyle.BG_COLOR)
+        search_frame.pack(fill=tk.X, pady=(0, 15))
         
-        tk.Label(search_frame, text="Search:").pack(side=tk.LEFT, padx=(0, 10))
+        # Search box
+        search_label = tk.Label(search_frame, text="🔍 Search:", 
+                               font=ModernStyle.FONT_NORMAL,
+                               fg=ModernStyle.TEXT_SECONDARY, bg=ModernStyle.BG_COLOR)
+        search_label.pack(side=tk.LEFT, padx=(0, 10))
+        
         self.search_var = tk.StringVar()
-        tk.Entry(search_frame, textvariable=self.search_var, width=30).pack(side=tk.LEFT, padx=(0, 10))
-        self.search_var.trace('w', self.on_search)
+        search_entry = tk.Entry(search_frame, textvariable=self.search_var, 
+                               font=ModernStyle.FONT_NORMAL,
+                               relief=tk.FLAT, bd=0, highlightthickness=1,
+                               highlightcolor=ModernStyle.ACCENT_BLUE,
+                               highlightbackground="#ddd", width=30)
+        search_entry.pack(side=tk.LEFT, padx=(0, 10))
+        search_entry.bind("<KeyRelease>", self.on_search)
         
-        tk.Button(search_frame, text="+ Add New", command=self.add_new,
-                 bg="#27ae60", fg="white").pack(side=tk.LEFT, padx=(0, 10))
+        # Refresh button
+        refresh_btn = self.create_modern_button(search_frame, "🔄 Refresh", 
+                                               self.load_customers, ModernStyle.ACCENT_BLUE)
+        refresh_btn.pack(side=tk.LEFT)
         
-        tk.Button(search_frame, text="Refresh", command=self.load_customers,
-                 bg="#3498db", fg="white").pack(side=tk.LEFT)
+        # Treeview styling
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview", 
+                       background="white",
+                       foreground=ModernStyle.TEXT_PRIMARY,
+                       rowheight=30,
+                       fieldbackground="white",
+                       font=ModernStyle.FONT_NORMAL)
+        style.configure("Treeview.Heading",
+                       background=ModernStyle.BG_COLOR,
+                       foreground=ModernStyle.TEXT_PRIMARY,
+                       font=("SF Pro Text", 11, "bold"))
+        style.map("Treeview", background=[("selected", ModernStyle.ACCENT_BLUE)])
         
         # Treeview
         columns = ("ID", "Name", "Phone", "Email", "GSTIN", "Added Date")
-        self.tree = ttk.Treeview(parent, columns=columns, show="headings", height=20)
+        self.tree = ttk.Treeview(parent, columns=columns, show="headings", 
+                                 height=15, style="Treeview")
         
-        for col in columns:
+        # Column widths
+        column_widths = [50, 200, 120, 180, 120, 100]
+        for col, width in zip(columns, column_widths):
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=100)
-        
-        self.tree.column("Name", width=200)
-        self.tree.column("Email", width=150)
-        self.tree.column("Added Date", width=120)
+            self.tree.column(col, width=width)
         
         # Scrollbar
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=self.tree.yview)
@@ -140,21 +215,141 @@ class CustomerWindow:
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
+        # Action buttons frame
+        button_frame = tk.Frame(parent, bg=ModernStyle.BG_COLOR)
+        button_frame.pack(fill=tk.X, pady=15)
+        
+        # Modern action buttons
+        buttons = [
+            ("✏️ Edit", self.edit_customer, ModernStyle.ACCENT_BLUE),
+            ("🗑️ Delete", self.delete_customer, ModernStyle.ACCENT_RED),
+            ("📋 View Quotations", self.view_quotations, ModernStyle.ACCENT_PURPLE),
+            ("❌ Close", self.window.destroy, ModernStyle.TEXT_SECONDARY)
+        ]
+        
+        for text, cmd, color in buttons:
+            btn = self.create_modern_button(button_frame, text, cmd, color)
+            btn.pack(side=tk.LEFT, padx=5)
+    
+    def setup_add_form(self, parent):
+        """Setup add customer form"""
+        # Form card
+        card = tk.Frame(parent, bg="white", relief=tk.FLAT)
+        card.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Inner padding
+        inner = tk.Frame(card, bg="white")
+        inner.pack(fill=tk.BOTH, expand=True, padx=30, pady=30)
+        
+        # Title
+        title = tk.Label(inner, text="➕ Add New Customer", 
+                        font=ModernStyle.FONT_TITLE,
+                        fg=ModernStyle.TEXT_PRIMARY, bg="white")
+        title.grid(row=0, column=0, columnspan=2, pady=(0, 20), sticky=tk.W)
+        
+        # Form fields
+        fields = [
+            ("Customer Name *", "name"),
+            ("Phone Number *", "phone"),
+            ("Email Address", "email"),
+            ("GSTIN Number", "gstin"),
+            ("Address", "address")
+        ]
+        
+        self.entries = {}
+        for i, (label, key) in enumerate(fields, start=1):
+            # Label
+            lbl = tk.Label(inner, text=label, 
+                          font=ModernStyle.FONT_NORMAL,
+                          fg=ModernStyle.TEXT_PRIMARY, bg="white")
+            lbl.grid(row=i, column=0, padx=10, pady=8, sticky=tk.W)
+            
+            # Entry
+            if key == 'address':
+                entry = tk.Text(inner, height=4, width=40,
+                               font=ModernStyle.FONT_NORMAL,
+                               relief=tk.FLAT, highlightthickness=1,
+                               highlightcolor=ModernStyle.ACCENT_BLUE,
+                               highlightbackground="#ddd")
+                entry.grid(row=i, column=1, padx=10, pady=8, sticky=tk.W)
+            else:
+                entry = tk.Entry(inner, width=40,
+                                font=ModernStyle.FONT_NORMAL,
+                                relief=tk.FLAT, highlightthickness=1,
+                                highlightcolor=ModernStyle.ACCENT_BLUE,
+                                highlightbackground="#ddd")
+                entry.grid(row=i, column=1, padx=10, pady=8, sticky=tk.W)
+            
+            entry.bind('<Tab>', self.focus_next_widget)
+            entry.bind('<Button-3>', self.show_paste_menu)
+            self.entries[key] = entry
+        
         # Button frame
-        button_frame = tk.Frame(parent)
-        button_frame.pack(fill=tk.X, pady=10)
+        btn_frame = tk.Frame(inner, bg="white")
+        btn_frame.grid(row=len(fields)+1, column=0, columnspan=2, pady=20)
         
-        tk.Button(button_frame, text="Edit Selected", command=self.edit_customer,
-                 bg="#f39c12", fg="white").pack(side=tk.LEFT, padx=5)
+        # Modern buttons
+        save_btn = self.create_modern_button(btn_frame, "💾 Save Customer", 
+                                            self.save_customer, ModernStyle.ACCENT_GREEN)
+        save_btn.pack(side=tk.LEFT, padx=5)
         
-        tk.Button(button_frame, text="Delete Selected", command=self.delete_customer,
-                 bg="#e74c3c", fg="white").pack(side=tk.LEFT, padx=5)
+        clear_btn = self.create_modern_button(btn_frame, "🔄 Clear", 
+                                             self.clear_form, ModernStyle.ACCENT_ORANGE)
+        clear_btn.pack(side=tk.LEFT, padx=5)
         
-        tk.Button(button_frame, text="View Quotations", command=self.view_quotations,
-                 bg="#3498db", fg="white").pack(side=tk.LEFT, padx=5)
+        close_btn = self.create_modern_button(btn_frame, "❌ Close", 
+                                             self.window.destroy, ModernStyle.TEXT_SECONDARY)
+        close_btn.pack(side=tk.LEFT, padx=5)
+    
+    def load_customers(self):
+        """Load customers into treeview"""
+        # Clear existing items
+        for item in self.tree.get_children():
+            self.tree.delete(item)
         
-        tk.Button(button_frame, text="Close", command=self.window.destroy,
-                 bg="#95a5a6", fg="white").pack(side=tk.LEFT, padx=5)
+        try:
+            conn = sqlite3.connect('contractormitra.db')
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, name, phone, email, gstin, created_date FROM customers ORDER BY name")
+            customers = cursor.fetchall()
+            conn.close()
+            
+            for customer in customers:
+                # Format date if exists
+                date = customer[5] if customer[5] else "-"
+                if date != "-":
+                    try:
+                        date_obj = datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
+                        date = date_obj.strftime('%d-%b-%Y')
+                    except:
+                        pass
+                
+                self.tree.insert("", "end", values=(
+                    customer[0],
+                    customer[1],
+                    customer[2] or "-",
+                    customer[3] or "-",
+                    customer[4] or "-",
+                    date
+                ))
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load customers: {str(e)}")
+    
+    def on_search(self, event=None):
+        """Search customers"""
+        search_term = self.search_var.get().lower()
+        
+        # Reload all
+        self.load_customers()
+        
+        if not search_term:
+            return
+        
+        # Filter in treeview
+        for item in self.tree.get_children():
+            values = self.tree.item(item)['values']
+            if not any(search_term in str(v).lower() for v in values[1:4]):  # Search in name, phone, email
+                self.tree.delete(item)
     
     def save_customer(self):
         """Save new customer"""
@@ -186,6 +381,10 @@ class CustomerWindow:
             messagebox.showinfo("Success", f"Customer '{name}' added successfully!")
             self.clear_form()
             
+            # Go back to view mode
+            self.window.destroy()
+            CustomerWindow(self.parent, mode='view')
+            
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save customer: {str(e)}")
     
@@ -196,47 +395,6 @@ class CustomerWindow:
                 entry.delete("1.0", tk.END)
             else:
                 entry.delete(0, tk.END)
-    
-    def load_customers(self):
-        """Load customers into treeview"""
-        # Clear existing items
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        
-        conn = sqlite3.connect('contractormitra.db')
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, name, phone, email, gstin, created_date FROM customers ORDER BY name")
-        customers = cursor.fetchall()
-        conn.close()
-        
-        for customer in customers:
-            self.tree.insert("", "end", values=customer)
-    
-    def on_search(self, *args):
-        """Search customers"""
-        search_term = self.search_var.get().lower()
-        
-        if not search_term:
-            self.load_customers()
-            return
-        
-        # Filter in memory (for small datasets)
-        conn = sqlite3.connect('contractormitra.db')
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, name, phone, email, gstin, created_date FROM customers")
-        all_customers = cursor.fetchall()
-        conn.close()
-        
-        # Clear tree
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        
-        # Filter and insert
-        for customer in all_customers:
-            if (search_term in customer[1].lower() or  # name
-                search_term in customer[2].lower() or  # phone
-                search_term in str(customer[3]).lower()):  # email
-                self.tree.insert("", "end", values=customer)
     
     def add_new(self):
         """Open add new customer form"""
@@ -250,37 +408,60 @@ class CustomerWindow:
             messagebox.showwarning("Warning", "Please select a customer to edit")
             return
         
-        # Get customer ID
         item = self.tree.item(selected[0])
         customer_id = item['values'][0]
-        
-        # Open edit window
         self.open_edit_window(customer_id)
     
     def open_edit_window(self, customer_id):
         """Open window to edit customer"""
         # Fetch customer data
-        conn = sqlite3.connect('contractormitra.db')
-        cursor = conn.cursor()
-        cursor.execute("SELECT name, phone, email, gstin, address FROM customers WHERE id = ?", (customer_id,))
-        customer = cursor.fetchone()
-        conn.close()
-        
-        if not customer:
-            messagebox.showerror("Error", "Customer not found")
+        try:
+            conn = sqlite3.connect('contractormitra.db')
+            cursor = conn.cursor()
+            cursor.execute("SELECT name, phone, email, gstin, address FROM customers WHERE id = ?", (customer_id,))
+            customer = cursor.fetchone()
+            conn.close()
+            
+            if not customer:
+                messagebox.showerror("Error", "Customer not found")
+                return
+        except Exception as e:
+            messagebox.showerror("Error", f"Database error: {str(e)}")
             return
         
         # Create edit window
         edit_window = tk.Toplevel(self.window)
         edit_window.title("Edit Customer")
-        edit_window.geometry("500x400")
+        edit_window.geometry("500x450")
+        edit_window.configure(bg=ModernStyle.BG_COLOR)
         
-        tk.Label(edit_window, text="EDIT CUSTOMER", 
-                font=("Arial", 16, "bold"), fg="#2c3e50").pack(pady=(10, 20))
+        # Center window
+        edit_window.update_idletasks()
+        width = edit_window.winfo_width()
+        height = edit_window.winfo_height()
+        x = (edit_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (edit_window.winfo_screenheight() // 2) - (height // 2)
+        edit_window.geometry(f'{width}x{height}+{x}+{y}')
         
-        form_frame = tk.Frame(edit_window)
-        form_frame.pack(fill=tk.BOTH, expand=True, padx=50)
+        # Main frame
+        main_frame = tk.Frame(edit_window, bg=ModernStyle.BG_COLOR)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
+        # Card
+        card = tk.Frame(main_frame, bg="white", relief=tk.FLAT)
+        card.pack(fill=tk.BOTH, expand=True)
+        
+        # Inner
+        inner = tk.Frame(card, bg="white")
+        inner.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Title
+        title = tk.Label(inner, text="✏️ Edit Customer", 
+                        font=ModernStyle.FONT_TITLE,
+                        fg=ModernStyle.TEXT_PRIMARY, bg="white")
+        title.grid(row=0, column=0, columnspan=2, pady=(0, 20), sticky=tk.W)
+        
+        # Form fields
         fields = [
             ("Customer Name *", "name", customer[0]),
             ("Phone Number *", "phone", customer[1]),
@@ -290,22 +471,33 @@ class CustomerWindow:
         ]
         
         entries = {}
-        for i, (label, key, value) in enumerate(fields):
-            tk.Label(form_frame, text=label).grid(row=i, column=0, padx=10, pady=10, sticky=tk.W)
+        for i, (label, key, value) in enumerate(fields, start=1):
+            # Label
+            lbl = tk.Label(inner, text=label, 
+                          font=ModernStyle.FONT_NORMAL,
+                          fg=ModernStyle.TEXT_PRIMARY, bg="white")
+            lbl.grid(row=i, column=0, padx=10, pady=8, sticky=tk.W)
             
+            # Entry
             if key == 'address':
-                entry = tk.Text(form_frame, height=4, width=30)
+                entry = tk.Text(inner, height=3, width=30,
+                               font=ModernStyle.FONT_NORMAL,
+                               relief=tk.FLAT, highlightthickness=1,
+                               highlightcolor=ModernStyle.ACCENT_BLUE,
+                               highlightbackground="#ddd")
                 entry.insert("1.0", value)
-                entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
-                entry.bind('<Tab>', self.focus_next_widget)
-                entry.bind('<Button-3>', self.show_paste_menu)
+                entry.grid(row=i, column=1, padx=10, pady=8, sticky=tk.W)
             else:
-                entry = tk.Entry(form_frame, width=30)
+                entry = tk.Entry(inner, width=30,
+                                font=ModernStyle.FONT_NORMAL,
+                                relief=tk.FLAT, highlightthickness=1,
+                                highlightcolor=ModernStyle.ACCENT_BLUE,
+                                highlightbackground="#ddd")
                 entry.insert(0, value)
-                entry.grid(row=i, column=1, padx=10, pady=10, sticky=tk.W)
-                entry.bind('<Tab>', self.focus_next_widget)
-                entry.bind('<Button-3>', self.show_paste_menu)
+                entry.grid(row=i, column=1, padx=10, pady=8, sticky=tk.W)
             
+            entry.bind('<Tab>', self.focus_next_widget)
+            entry.bind('<Button-3>', self.show_paste_menu)
             entries[key] = entry
         
         def save_changes():
@@ -338,20 +530,23 @@ class CustomerWindow:
                 
                 messagebox.showinfo("Success", "Customer updated successfully!")
                 edit_window.destroy()
-                self.load_customers()  # Refresh list
+                self.load_customers()
                 
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to update: {str(e)}")
         
-        # Buttons
-        button_frame = tk.Frame(edit_window)
-        button_frame.pack(pady=20)
+        # Button frame
+        btn_frame = tk.Frame(inner, bg="white")
+        btn_frame.grid(row=len(fields)+1, column=0, columnspan=2, pady=20)
         
-        tk.Button(button_frame, text="Save Changes", command=save_changes,
-                 bg="#27ae60", fg="white", width=15).pack(side=tk.LEFT, padx=10)
+        # Modern buttons
+        save_btn = self.create_modern_button(btn_frame, "💾 Save Changes", 
+                                            save_changes, ModernStyle.ACCENT_GREEN)
+        save_btn.pack(side=tk.LEFT, padx=5)
         
-        tk.Button(button_frame, text="Cancel", command=edit_window.destroy,
-                 bg="#95a5a6", fg="white", width=15).pack(side=tk.LEFT, padx=10)
+        cancel_btn = self.create_modern_button(btn_frame, "❌ Cancel", 
+                                              edit_window.destroy, ModernStyle.TEXT_SECONDARY)
+        cancel_btn.pack(side=tk.LEFT, padx=5)
     
     def delete_customer(self):
         """Delete selected customer"""
@@ -361,12 +556,11 @@ class CustomerWindow:
             return
         
         item = self.tree.item(selected[0])
+        customer_id = item['values'][0]
         customer_name = item['values'][1]
         
         if messagebox.askyesno("Confirm Delete", 
                               f"Are you sure you want to delete customer:\n{customer_name}?\n\nThis action cannot be undone."):
-            customer_id = item['values'][0]
-            
             try:
                 conn = sqlite3.connect('contractormitra.db')
                 cursor = conn.cursor()
@@ -402,6 +596,13 @@ class CustomerWindow:
         customer_id = item['values'][0]
         customer_name = item['values'][1]
         
-        # Open quotations window for this customer
         messagebox.showinfo("Info", 
                            f"Will show quotations for: {customer_name}\n\nThis feature will be implemented in next version")
+
+
+# ============ MAIN ============
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.withdraw()
+    app = CustomerWindow(root)
+    root.mainloop()
