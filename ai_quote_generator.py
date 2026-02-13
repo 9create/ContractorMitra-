@@ -1,6 +1,6 @@
 """
 AI QUOTE GENERATOR - ContractorMitra
-Working Version + Apple UI Polish
+Working Version + Focus Fixed
 """
 
 import tkinter as tk
@@ -78,6 +78,10 @@ class AIQuoteGenerator:
         self.setup_ui()
         self.load_materials()
         self.load_customers()
+
+        # Ensure this window stays on top when messagebox appears
+        self.window.transient(parent)
+        self.window.grab_set()
 
     def center_window(self):
         self.window.update_idletasks()
@@ -383,6 +387,10 @@ class AIQuoteGenerator:
         added+=1
 
         self.calc_totals()
+
+        # 🔥 FIX: Bring AI window back to front before showing messagebox
+        self.window.lift()
+        self.window.focus_force()
 
         if added>0:
             self.status_var.set(f"AI generated {added} items")
