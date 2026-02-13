@@ -1,107 +1,111 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
-import subprocess
-import sys
+from tkinter import messagebox
 import os
+import sys
 
-class ModernButton(tk.Canvas):
-    """Custom modern button with rounded corners and hover effect"""
-    def __init__(self, parent, text, command=None, width=200, height=50, 
-                 bg_color="#ffffff", fg_color="#2c3e50", accent_color="#3498db", 
-                 font=("SF Pro Display", 12, "bold")):
-        super().__init__(parent, width=width, height=height, highlightthickness=0, bg='#f5f5f7')
+class ModernStyle:
+    BG_COLOR = "#f5f5f7"
+    CARD_BG = "white"
+    TEXT_PRIMARY = "#1d1d1f"
+    TEXT_SECONDARY = "#86868b"
+    ACCENT_BLUE = "#3498db"
+    ACCENT_GREEN = "#2ecc71"
+    ACCENT_ORANGE = "#f39c12"
+    ACCENT_RED = "#e74c3c"
+    ACCENT_PURPLE = "#9b59b6"
+    ACCENT_TEAL = "#1abc9c"
+    
+    FONT_HEADER = ("SF Pro Display", 24, "bold")
+    FONT_TITLE = ("SF Pro Display", 18, "bold")
+    FONT_NORMAL = ("SF Pro Text", 11)
+    FONT_SMALL = ("SF Pro Text", 10)
+
+class ModernButton:
+    def __init__(self, parent, text, command, color=ModernStyle.ACCENT_BLUE, width=200, height=50):
+        self.frame = tk.Frame(parent, bg=ModernStyle.BG_COLOR)
+        self.canvas = tk.Canvas(self.frame, width=width, height=height, 
+                               highlightthickness=0, bg=ModernStyle.BG_COLOR)
+        self.canvas.pack()
         self.command = command
-        self.bg_color = bg_color
-        self.fg_color = fg_color
-        self.accent_color = accent_color
+        self.color = color
         self.text = text
-        self.font = font
-        self.width = width
-        self.height = height
         
-        self.bind("<Enter>", self.on_enter)
-        self.bind("<Leave>", self.on_leave)
-        self.bind("<Button-1>", self.on_click)
+        self.draw_button(color)
         
-        self.draw_button(bg_color)
+        self.canvas.bind("<Enter>", self.on_enter)
+        self.canvas.bind("<Leave>", self.on_leave)
+        self.canvas.bind("<Button-1>", self.on_click)
     
-    def draw_button(self, color):
-        self.delete("all")
+    def draw_button(self, fill_color):
+        self.canvas.delete("all")
         # Rounded rectangle
-        self.create_rounded_rect(5, 5, self.width-5, self.height-5, 15, fill=color, outline="", tags="button")
-        # Text
-        self.create_text(self.width//2, self.height//2, text=self.text, 
-                        fill=self.fg_color, font=self.font, tags="text")
+        self.canvas.create_rounded_rect(5, 5, 195, 45, 10, fill=fill_color, outline="")
+        self.canvas.create_text(100, 25, text=self.text, fill="white", 
+                               font=ModernStyle.FONT_NORMAL)
     
-    def create_rounded_rect(self, x1, y1, x2, y2, radius, **kwargs):
-        points = [x1+radius, y1,
-                  x2-radius, y1,
-                  x2, y1,
-                  x2, y1+radius,
-                  x2, y2-radius,
-                  x2, y2,
-                  x2-radius, y2,
-                  x1+radius, y2,
-                  x1, y2,
-                  x1, y2-radius,
-                  x1, y1+radius,
-                  x1, y1]
-        self.create_polygon(points, smooth=True, **kwargs)
+    def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
+        points = [x1+r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y2-r, 
+                 x2, y2, x2-r, y2, x1+r, y2, x1, y2, x1, y2-r, 
+                 x1, y1+r, x1, y1]
+        self.canvas.create_polygon(points, smooth=True, **kwargs)
+    
+    def darken(self, color):
+        color = color.lstrip('#')
+        r,g,b = int(color[0:2],16), int(color[2:4],16), int(color[4:6],16)
+        return f"#{max(0,r-20):02x}{max(0,g-20):02x}{max(0,b-20):02x}"
     
     def on_enter(self, event):
-        self.draw_button(self.accent_color)
-        self.itemconfig("text", fill="white")
+        self.draw_button(self.darken(self.color))
     
     def on_leave(self, event):
-        self.draw_button(self.bg_color)
-        self.itemconfig("text", fill=self.fg_color)
+        self.draw_button(self.color)
     
     def on_click(self, event):
         if self.command:
             self.command()
+    
+    def pack(self, **kwargs):
+        self.frame.pack(**kwargs)
+    
+    def grid(self, **kwargs):
+        self.frame.grid(**kwargs)
 
 class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("ContractorMitra")
         self.root.geometry("1200x700")
-        self.root.configure(bg='#f5f5f7')
-        
-        # Center window
+        self.root.configure(bg=ModernStyle.BG_COLOR)
         self.center_window()
-        
-        # Setup UI
         self.setup_ui()
-        
+    
     def center_window(self):
         self.root.update_idletasks()
-        width = self.root.winfo_width()
-        height = self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.root.winfo_screenheight() // 2) - (height // 2)
-        self.root.geometry(f'{width}x{height}+{x}+{y}')
+        w = self.root.winfo_width()
+        h = self.root.winfo_height()
+        x = (self.root.winfo_screenwidth() // 2) - (w // 2)
+        y = (self.root.winfo_screenheight() // 2) - (h // 2)
+        self.root.geometry(f'{w}x{h}+{x}+{y}')
     
     def setup_ui(self):
-        # Main container with padding
-        main_frame = tk.Frame(self.root, bg='#f5f5f7')
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=40, pady=40)
+        main = tk.Frame(self.root, bg=ModernStyle.BG_COLOR)
+        main.pack(fill=tk.BOTH, expand=True, padx=40, pady=40)
         
         # Header
-        header_frame = tk.Frame(main_frame, bg='#f5f5f7')
-        header_frame.pack(fill=tk.X, pady=(0, 40))
+        header = tk.Frame(main, bg=ModernStyle.BG_COLOR)
+        header.pack(fill=tk.X, pady=(0,40))
         
-        # Logo/Title
-        title_label = tk.Label(header_frame, text="ContractorMitra", 
-                              font=("SF Pro Display", 32, "bold"),
-                              fg="#1d1d1f", bg='#f5f5f7')
-        title_label.pack()
+        tk.Label(header, text="ContractorMitra", 
+                font=ModernStyle.FONT_HEADER,
+                fg=ModernStyle.TEXT_PRIMARY, bg=ModernStyle.BG_COLOR).pack()
         
-        subtitle = tk.Label(header_frame, text="Professional Quotation & Billing Software\nfor Electrical & Civil Contractors",
-                          font=("SF Pro Text", 14), fg="#86868b", bg='#f5f5f7', justify=tk.CENTER)
-        subtitle.pack(pady=(10, 0))
+        tk.Label(header, 
+                text="Professional Quotation & Billing Software for Electrical & Civil Contractors",
+                font=ModernStyle.FONT_NORMAL,
+                fg=ModernStyle.TEXT_SECONDARY, bg=ModernStyle.BG_COLOR).pack(pady=(10,0))
         
-        # Cards Grid Frame
-        cards_frame = tk.Frame(main_frame, bg='#f5f5f7')
+        # Cards Grid
+        cards_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
         cards_frame.pack(expand=True, fill=tk.BOTH)
         
         # Configure grid
@@ -112,77 +116,74 @@ class MainWindow:
         
         # Card data
         cards = [
-            {"title": "📋 New Quotation", "desc": "Create professional quotations in seconds", "color": "#3498db", "command": self.new_quotation},
-            {"title": "👥 Customers", "desc": "Manage your customer database", "color": "#2ecc71", "command": self.manage_customers},
-            {"title": "📦 Materials", "desc": "Track your material inventory", "color": "#f39c12", "command": self.manage_materials},
-            {"title": "📊 Reports", "desc": "View sales & payment reports", "color": "#9b59b6", "command": self.view_reports},
-            {"title": "💰 Pending Payments", "desc": "Track outstanding payments", "color": "#e74c3c", "command": self.pending_payments},
-            {"title": "🤖 AI Quote", "desc": "AI-powered quotation generator", "color": "#1abc9c", "command": self.ai_quote_generator},
+            {"title": "📋 New Quotation", "desc": "Create professional quotations in seconds",
+             "color": ModernStyle.ACCENT_BLUE, "cmd": self.new_quotation},
+            {"title": "👥 Customers", "desc": "Manage your customer database",
+             "color": ModernStyle.ACCENT_GREEN, "cmd": self.manage_customers},
+            {"title": "📦 Materials", "desc": "Track your material inventory",
+             "color": ModernStyle.ACCENT_ORANGE, "cmd": self.manage_materials},
+            {"title": "📊 Reports", "desc": "View sales & payment reports",
+             "color": ModernStyle.ACCENT_PURPLE, "cmd": self.view_reports},
+            {"title": "💰 Pending Payments", "desc": "Track outstanding payments",
+             "color": ModernStyle.ACCENT_RED, "cmd": self.pending_payments},
+            {"title": "🤖 AI Quote", "desc": "AI-powered quotation generator",
+             "color": ModernStyle.ACCENT_TEAL, "cmd": self.ai_quote}
         ]
         
-        # Create cards in grid
         for idx, card in enumerate(cards):
             row = idx // 3
             col = idx % 3
             self.create_card(cards_frame, card, row, col)
         
         # Footer
-        footer_frame = tk.Frame(main_frame, bg='#f5f5f7')
-        footer_frame.pack(fill=tk.X, pady=(30, 0))
+        footer = tk.Frame(main, bg=ModernStyle.BG_COLOR)
+        footer.pack(fill=tk.X, pady=(30,0))
         
-        footer_text = tk.Label(footer_frame, 
-                              text="Made with ❤️ by ContractorMitra • v2.0 • Clean Edition",
-                              font=("SF Pro Text", 10), fg="#86868b", bg='#f5f5f7')
-        footer_text.pack()
+        tk.Label(footer, 
+                text="Made with ❤️ by ContractorMitra • v3.0 • Production Ready",
+                font=ModernStyle.FONT_SMALL,
+                fg=ModernStyle.TEXT_SECONDARY, bg=ModernStyle.BG_COLOR).pack()
     
     def create_card(self, parent, card, row, col):
-        """Create a modern card"""
-        card_frame = tk.Frame(parent, bg='white', relief=tk.FLAT, bd=0)
+        card_frame = tk.Frame(parent, bg="white", relief=tk.FLAT)
         card_frame.grid(row=row, column=col, padx=10, pady=10, sticky='nsew')
         
-        # Add shadow effect with padding
-        inner_frame = tk.Frame(card_frame, bg='white')
-        inner_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        inner = tk.Frame(card_frame, bg="white")
+        inner.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        # Title
-        title = tk.Label(inner_frame, text=card["title"], 
-                        font=("SF Pro Display", 16, "bold"),
-                        fg="#1d1d1f", bg='white')
-        title.pack(anchor=tk.W, padx=20, pady=(20, 5))
+        tk.Label(inner, text=card["title"], 
+                font=ModernStyle.FONT_TITLE,
+                fg=ModernStyle.TEXT_PRIMARY, bg="white").pack(anchor=tk.W, pady=(0,10))
         
-        # Description
-        desc = tk.Label(inner_frame, text=card["desc"],
-                       font=("SF Pro Text", 11), fg="#86868b", bg='white',
-                       wraplength=200, justify=tk.LEFT)
-        desc.pack(anchor=tk.W, padx=20, pady=(0, 20))
+        tk.Label(inner, text=card["desc"],
+                font=ModernStyle.FONT_SMALL,
+                fg=ModernStyle.TEXT_SECONDARY, bg="white",
+                wraplength=200, justify=tk.LEFT).pack(anchor=tk.W, pady=(0,20))
         
-        # Button
-        btn = ModernButton(inner_frame, text="Open →", command=card["command"],
-                          width=150, height=40, bg_color='white',
-                          fg_color=card["color"], accent_color=card["color"])
-        btn.pack(pady=(0, 20))
+        ModernButton(inner, "Open →", card["cmd"], card["color"], 150, 40).pack()
         
-        # Hover effect for card
-        def on_card_enter(e):
-            inner_frame.configure(bg='#f8f9fa')
-            for widget in inner_frame.winfo_children():
-                if isinstance(widget, tk.Label):
-                    widget.configure(bg='#f8f9fa')
+        def on_enter(e):
+            inner.configure(bg='#f8f9fa')
+            for w in inner.winfo_children():
+                if isinstance(w, tk.Label):
+                    w.configure(bg='#f8f9fa')
         
-        def on_card_leave(e):
-            inner_frame.configure(bg='white')
-            for widget in inner_frame.winfo_children():
-                if isinstance(widget, tk.Label):
-                    widget.configure(bg='white')
+        def on_leave(e):
+            inner.configure(bg='white')
+            for w in inner.winfo_children():
+                if isinstance(w, tk.Label):
+                    w.configure(bg='white')
         
-        inner_frame.bind("<Enter>", on_card_enter)
-        inner_frame.bind("<Leave>", on_card_leave)
-        for widget in inner_frame.winfo_children():
-            widget.bind("<Enter>", on_card_enter)
-            widget.bind("<Leave>", on_card_leave)
+        inner.bind("<Enter>", on_enter)
+        inner.bind("<Leave>", on_leave)
     
     def new_quotation(self):
-        messagebox.showinfo("Coming Soon", "New Quotation feature coming in Phase 2")
+        """Open New Quotation Window"""
+        try:
+            from ai_quote_generator import AIQuoteGenerator
+            AIQuoteGenerator(self.root)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open AI Quote Generator: {str(e)}")
     
     def manage_customers(self):
         try:
@@ -212,7 +213,7 @@ class MainWindow:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open Pending Payments: {str(e)}")
     
-    def ai_quote_generator(self):
+    def ai_quote(self):
         try:
             from ai_quote_generator import AIQuoteGenerator
             AIQuoteGenerator(self.root)

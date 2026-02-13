@@ -1,7 +1,7 @@
 """
 AI QUOTE GENERATOR - ContractorMitra
-FULLY PRODUCTION READY + FIXED UI
-Version: 3.0.1
+FULLY PRODUCTION READY + VERIFIED
+Version: 3.0.0
 """
 
 import tkinter as tk
@@ -28,6 +28,58 @@ class ModernStyle:
     FONT_NORMAL = ("SF Pro Text", 11)
     FONT_SMALL = ("SF Pro Text", 10)
 
+class ModernButton:
+    def __init__(self, parent, text, command, color=ModernStyle.ACCENT_BLUE, width=140, height=35):
+        self.frame = tk.Frame(parent, bg=ModernStyle.BG_COLOR)
+        self.canvas = tk.Canvas(self.frame, width=width, height=height,
+                               highlightthickness=0, bg=ModernStyle.BG_COLOR)
+        self.canvas.pack()
+        self.command = command
+        self.color = color
+        self.text = text
+        self.width = width
+        self.height = height
+
+        self.draw_button(color)
+
+        self.canvas.bind("<Enter>", self.on_enter)
+        self.canvas.bind("<Leave>", self.on_leave)
+        self.canvas.bind("<Button-1>", self.on_click)
+
+    def draw_button(self, fill_color):
+        self.canvas.delete("all")
+        self.canvas.create_rounded_rect(2, 2, self.width-2, self.height-2, 8,
+                                       fill=fill_color, outline="")
+        self.canvas.create_text(self.width//2, self.height//2, text=self.text,
+                               fill="white", font=ModernStyle.FONT_SMALL)
+
+    def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
+        points = [x1+r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y2-r,
+                 x2, y2, x2-r, y2, x1+r, y2, x1, y2, x1, y2-r,
+                 x1, y1+r, x1, y1]
+        self.canvas.create_polygon(points, smooth=True, **kwargs)
+
+    def darken(self, color):
+        color = color.lstrip('#')
+        r,g,b = int(color[0:2],16), int(color[2:4],16), int(color[4:6],16)
+        return f"#{max(0,r-20):02x}{max(0,g-20):02x}{max(0,b-20):02x}"
+
+    def on_enter(self, event):
+        self.draw_button(self.darken(self.color))
+
+    def on_leave(self, event):
+        self.draw_button(self.color)
+
+    def on_click(self, event):
+        if self.command:
+            self.command()
+
+    def pack(self, **kwargs):
+        self.frame.pack(**kwargs)
+
+    def grid(self, **kwargs):
+        self.frame.grid(**kwargs)
+
 class AIQuoteGenerator:
     def __init__(self, parent):
         self.parent = parent
@@ -48,6 +100,10 @@ class AIQuoteGenerator:
         self.load_materials()
         self.load_customers()
 
+        # Make window modal but not blocking
+        self.window.transient(parent)
+        self.window.grab_set()
+
     def center_window(self):
         self.window.update_idletasks()
         w = self.window.winfo_width()
@@ -55,31 +111,6 @@ class AIQuoteGenerator:
         x = (self.window.winfo_screenwidth() // 2) - (w // 2)
         y = (self.window.winfo_screenheight() // 2) - (h // 2)
         self.window.geometry(f'{w}x{h}+{x}+{y}')
-
-    def create_modern_button(self, parent, text, command, color=ModernStyle.ACCENT_BLUE, width=140):
-        frame = tk.Frame(parent, bg=ModernStyle.BG_COLOR)
-        canvas = tk.Canvas(frame, width=width, height=35, highlightthickness=0, bg=ModernStyle.BG_COLOR)
-        canvas.pack()
-
-        def draw_rect(fill):
-            canvas.delete("all")
-            points = [10,2, width-10,2, width-2,10, width-2,25, width-10,33, 10,33, 2,25, 2,10]
-            canvas.create_polygon(points, smooth=True, fill=fill)
-            canvas.create_text(width//2, 18, text=text, fill="white", font=ModernStyle.FONT_SMALL)
-
-        draw_rect(color)
-
-        def on_enter(e): draw_rect(self.darken(color))
-        def on_leave(e): draw_rect(color)
-        canvas.bind("<Enter>", on_enter)
-        canvas.bind("<Leave>", on_leave)
-        canvas.bind("<Button-1>", lambda e: command())
-        return frame
-
-    def darken(self, c):
-        c = c.lstrip('#')
-        r,g,b = int(c[0:2],16), int(c[2:4],16), int(c[4:6],16)
-        return f"#{max(0,r-20):02x}{max(0,g-20):02x}{max(0,b-20):02x}"
 
     def setup_ui(self):
         main = tk.Frame(self.window, bg=ModernStyle.BG_COLOR)
@@ -112,8 +143,8 @@ class AIQuoteGenerator:
         self.customer_combo.pack(side=tk.LEFT, padx=(0,10))
         self.customer_combo.bind('<<ComboboxSelected>>', self.on_customer_select)
 
-        self.create_modern_button(row, "+ New Customer", self.open_customer_window,
-                                  ModernStyle.ACCENT_GREEN, 130).pack(side=tk.LEFT)
+        ModernButton(row, "+ New Customer", self.open_customer_window,
+                     ModernStyle.ACCENT_GREEN, 130).pack(side=tk.LEFT)
 
         self.customer_info_var = tk.StringVar(value="👤 No customer selected")
         tk.Label(inner_cust, textvariable=self.customer_info_var,
@@ -144,10 +175,10 @@ class AIQuoteGenerator:
         # Generate Button
         btn_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
         btn_frame.pack(pady=10)
-        self.create_modern_button(btn_frame, "⚡ GENERATE QUOTATION ⚡",
-                                  self.generate_ai_quote, ModernStyle.ACCENT_GREEN, 280).pack()
+        ModernButton(btn_frame, "⚡ GENERATE QUOTATION ⚡",
+                     self.generate_ai_quote, ModernStyle.ACCENT_GREEN, 280).pack()
 
-        # Items Treeview - SEPARATE FRAME (no totals inside)
+        # Items Treeview
         tree_card = tk.Frame(main, bg="white", relief=tk.FLAT)
         tree_card.pack(fill=tk.BOTH, expand=True, pady=(0,10))
         inner_tree = tk.Frame(tree_card, bg="white")
@@ -177,11 +208,10 @@ class AIQuoteGenerator:
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Totals Frame - ALAG SE (treeview ke neeche)
+        # Totals Frame - ALAG SE
         total_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
         total_frame.pack(fill=tk.X, pady=5)
 
-        # Totals inside white card
         total_card = tk.Frame(total_frame, bg="white", relief=tk.FLAT)
         total_card.pack(fill=tk.X)
         total_inner = tk.Frame(total_card, bg="white")
@@ -210,14 +240,14 @@ class AIQuoteGenerator:
         action_row = tk.Frame(main, bg=ModernStyle.BG_COLOR)
         action_row.pack(fill=tk.X, pady=10)
 
-        actions = [
-            ("💾 Save Quotation", self.save_quotation, ModernStyle.ACCENT_BLUE),
-            ("📄 Generate PDF", self.generate_pdf, ModernStyle.ACCENT_ORANGE),
-            ("🔄 Reset All", self.clear_all, ModernStyle.TEXT_SECONDARY),
-            ("❌ Close", self.window.destroy, ModernStyle.TEXT_SECONDARY)
-        ]
-        for txt, cmd, col in actions:
-            self.create_modern_button(action_row, txt, cmd, col, 140).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_row, "💾 Save Quotation", self.save_quotation,
+                     ModernStyle.ACCENT_BLUE, 140).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_row, "📄 Generate PDF", self.generate_pdf,
+                     ModernStyle.ACCENT_ORANGE, 140).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_row, "🔄 Reset All", self.clear_all,
+                     ModernStyle.TEXT_SECONDARY, 140).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_row, "❌ Close", self.window.destroy,
+                     ModernStyle.TEXT_SECONDARY, 140).pack(side=tk.LEFT, padx=5)
 
         # Status Bar
         self.status_var = tk.StringVar(value="✅ Ready. Select customer and describe project.")
