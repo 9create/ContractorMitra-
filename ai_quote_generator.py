@@ -1,6 +1,6 @@
 """
 AI QUOTE GENERATOR - ContractorMitra
-Working Version + All Buttons Restored + Focus Fixed
+Working Version + All Buttons Restored + Max/Min Fixed
 """
 
 import tkinter as tk
@@ -67,6 +67,10 @@ class AIQuoteGenerator:
         self.window.title("AI Quote Generator - ContractorMitra")
         self.window.geometry("1100x750")
         self.window.configure(bg=ModernStyle.BG_COLOR)
+
+        # 🔥 FIX: Enable maximize/minimize buttons
+        self.window.resizable(True, True)
+        self.window.state('normal')
 
         self.items = []
         self.selected_customer_id = None
@@ -186,18 +190,25 @@ class AIQuoteGenerator:
         tk.Label(total_frame, textvariable=self.total_var, font=ModernStyle.FONT_TITLE,
                  fg=ModernStyle.ACCENT_RED, bg=ModernStyle.BG_COLOR).pack(side=tk.LEFT)
 
-        # Action Buttons (Fixed - All present)
+        # Action Buttons - FIXED WITH FRAMES
         action_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
         action_frame.pack(fill=tk.X, pady=15)
 
-        ModernButton(action_frame, "💾 Save", self.save_quotation,
-                     ModernStyle.ACCENT_BLUE, width=12).pack(side=tk.LEFT, padx=5)
-        ModernButton(action_frame, "📄 PDF", self.generate_pdf,
-                     ModernStyle.ACCENT_ORANGE, width=12).pack(side=tk.LEFT, padx=5)
-        ModernButton(action_frame, "🔄 Reset", self.clear_all,
-                     ModernStyle.TEXT_SECONDARY, width=12).pack(side=tk.LEFT, padx=5)
-        ModernButton(action_frame, "❌ Close", self.window.destroy,
-                     ModernStyle.TEXT_SECONDARY, width=12).pack(side=tk.LEFT, padx=5)
+        btn1 = tk.Frame(action_frame, bg=ModernStyle.BG_COLOR)
+        btn1.pack(side=tk.LEFT, padx=5)
+        ModernButton(btn1, "💾 Save Quotation", self.save_quotation, ModernStyle.ACCENT_BLUE).pack()
+
+        btn2 = tk.Frame(action_frame, bg=ModernStyle.BG_COLOR)
+        btn2.pack(side=tk.LEFT, padx=5)
+        ModernButton(btn2, "📄 Generate PDF", self.generate_pdf, ModernStyle.ACCENT_ORANGE).pack()
+
+        btn3 = tk.Frame(action_frame, bg=ModernStyle.BG_COLOR)
+        btn3.pack(side=tk.LEFT, padx=5)
+        ModernButton(btn3, "🔄 Reset All", self.clear_all, ModernStyle.TEXT_SECONDARY).pack()
+
+        btn4 = tk.Frame(action_frame, bg=ModernStyle.BG_COLOR)
+        btn4.pack(side=tk.LEFT, padx=5)
+        ModernButton(btn4, "❌ Close", self.window.destroy, ModernStyle.TEXT_SECONDARY).pack()
 
         # Status Bar
         self.status_var = tk.StringVar(value="Ready. Select customer and describe project.")
