@@ -6,6 +6,7 @@ Date: 2026-02-14
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import simpledialog        # ✅ YAHAN PE ADD KARO
 import sqlite3
 import re
 from datetime import datetime
@@ -148,6 +149,7 @@ class AIQuoteGenerator:
             self.tree.column(col, width=100)
         self.tree.column("Description", width=200)
         self.tree.column("Item", width=120)
+        self.tree.bind("<Double-1>", self.edit_item)   # ⬅️ YEH LINE ADD KARO
 
         scroll = ttk.Scrollbar(items_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scroll.set)
@@ -475,7 +477,113 @@ class AIQuoteGenerator:
         self.total_var.set("Rs. 0.00")
         self.status_var.set("Reset complete")
         self.load_customers()
-
+    
+    def edit_item(self, event):
+        """Edit selected quotation item on double-click"""
+        selected = self.tree.selection()
+        if not selected:
+            return
+        
+        # Get selected item values
+        item_id = selected[0]
+        values = self.tree.item(item_id, 'values')
+        if not values:
+            return
+        
+        # Find the corresponding item in self.items
+        item_name = values[0].strip()
+        matching_items = [it for it in self.items if it['name'].startswith(item_name)]
+        if not matching_items:
+            return
+        item = matching_items[0]
+        
+        # Create edit dialog
+        self.edit_dialog = tk.Toplevel(self.window)
+        self.edit_dialog.title("Edit Item")
+        self.edit_dialog.geometry("400x300")
+        self.edit_dialog.configure(bg="white")
+        self.edit_dialog.transient(self.window)
+        self.edit_dialog.grab_set()
+        
+        # Center dialog
+        self.edit_dialog.update_idletasks()
+        w = self.edit_dialog.winfo_width()
+        h = self.edit_dialog.winfo_height()
+        x = (self.edit_dialog.winfo_screenwidth() // 2) - (w // 2)
+        y = (self.edit_dialog.winfo_screenheight() // 2) - (h // 2)
+        self.edit_dialog.geometry(f'{w}x{h}+{x}+{y}')
+        
+        # Title
+        tk.Label(self.edit_dialog, text="✏️ Edit Item", font=("SF Pro Display", 14, "bold"),
+                 bg="white", fg="#1d1d1f").pack(pady=(10, 20))
+        
+        # Form
+        form = tk.Frame(self.edit_dialog, bg="white")
+        form.pack(padx=20, pady=10)
+        
+        # Item Name (read-only)
+        tk.Label(form, text="Item:", bg="white", font=("SF Pro Text", 11)).grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        name_label = tk.Label(form, text=item['name'], bg="white", font=("SF Pro Text", 11, "bold"))
+        name_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+        
+        # Description
+        tk.Label(form, text="Description:", bg="white", font=("SF Pro Text", 11)).grid(row=1, column=0, padx=5, pady=5, sticky='w')
+        desc_entry = tk.Entry(form, width=30, font=("SF Pro Text", 11))
+        desc_entry.insert(0, item['description'])
+        desc_entry.grid(row=1, column=1, padx=5, pady=5)
+        
+        # Quantity
+        tk.Label(form, text="Quantity:", bg="white", font=("SF Pro Text", 11)).grid(row=2, column=0, padx=5, pady=5, sticky='w')
+        qty_entry = tk.Entry(form, width=30, font=("SF Pro Text", 11))
+        qty_entry.insert(0, str(item['quantity']))
+        qty_entry.grid(row=2, column=1, padx=5, pady=5)
+        
+        # Rate
+        tk.Label(form, text="Rate (Rs.):", bg="white", font=("SF Pro Text", 11)).grid(row=3, column=0, padx=5, pady=5, sticky='w')
+        rate_entry = tk.Entry(form, width=30, font=("SF Pro Text", 11))
+        rate_entry.insert(0, str(item['rate']))
+        rate_entry.grid(row=3, column=1, padx=5, pady=5)
+        
+        # Buttons
+        btn_frame = tk.Frame(self.edit_dialog, bg="white")
+        btn_frame.pack(pady=20)
+        
+        def save_changes():
+            try:
+                new_qty = float(qty_entry.get() or 0)
+                new_rate = float(rate_entry.get() or 0)
+                new_desc = desc_entry.get().strip()
+                
+                if new_qty <= 0:
+                    messagebox.showwarning("Warning", "Quantity must be greater than 0")
+                    return
+                if new_rate <= 0:
+                    messagebox.showwarning("Warning", "Rate must be greater than 0")
+                    return
+                
+                # Update item
+                item['quantity'] = new_qty
+                item['rate'] = new_rate
+                item['description'] = new_desc
+                item['amount'] = new_qty * new_rate
+                
+                # Refresh tree
+                self.refresh_tree()
+                self.calc_totals()
+                
+                self.edit_dialog.destroy()
+                self.status_var.set(f"✅ Updated {item['name']}")
+                
+            except ValueError:
+                messagebox.showerror("Error", "Invalid number format")
+        
+        tk.Button(btn_frame, text="💾 Save", command=save_changes,
+                 bg=ModernStyle.ACCENT_GREEN, fg="white", font=("SF Pro Text", 11),
+                 padx=20, pady=5, relief=tk.FLAT).pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(btn_frame, text="❌ Cancel", command=self.edit_dialog.destroy,
+                 bg=ModernStyle.TEXT_SECONDARY, fg="white", font=("SF Pro Text", 11),
+                 padx=20, pady=5, relief=tk.FLAT).pack(side=tk.LEFT, padx=5)
 
 if __name__ == "__main__":
     root = tk.Tk()
