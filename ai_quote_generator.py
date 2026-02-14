@@ -1,12 +1,12 @@
 """
 AI QUOTE GENERATOR - ContractorMitra
-OLD WORKING VERSION + Apple Theme
+FULLY FIXED VERSION + APPLE THEME
 Date: 2026-02-14
 """
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from tkinter import simpledialog        # ✅ YAHAN PE ADD KARO
+from tkinter import simpledialog
 import sqlite3
 import re
 from datetime import datetime
@@ -149,7 +149,7 @@ class AIQuoteGenerator:
             self.tree.column(col, width=100)
         self.tree.column("Description", width=200)
         self.tree.column("Item", width=120)
-        self.tree.bind("<Double-1>", self.edit_item)   # ⬅️ YEH LINE ADD KARO
+        self.tree.bind("<Double-1>", self.edit_item)
 
         scroll = ttk.Scrollbar(items_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scroll.set)
@@ -179,7 +179,7 @@ class AIQuoteGenerator:
         tk.Label(total_frame, textvariable=self.total_var, font=ModernStyle.FONT_TITLE,
                  fg=ModernStyle.ACCENT_RED, bg=ModernStyle.BG_COLOR).pack(side=tk.LEFT)
 
-        # Action Buttons
+        # Action Buttons - BOTTOM
         action_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
         action_frame.pack(fill=tk.X, pady=15)
 
@@ -253,7 +253,14 @@ class AIQuoteGenerator:
             self.window.wait_window(cw.window)
             self.load_customers()
         except Exception as e:
+            self.bring_to_front()
             messagebox.showerror("Error", str(e))
+
+    def bring_to_front(self):
+        """Bring AI window to front before showing messagebox"""
+        self.window.lift()
+        self.window.focus_force()
+        self.window.grab_set()
 
     def extract_qty(self, text, keys):
         q = 0
@@ -299,10 +306,12 @@ class AIQuoteGenerator:
 
     def generate_ai_quote(self):
         if not self.selected_customer_id:
+            self.bring_to_front()
             messagebox.showwarning("Warning", "Select a customer first")
             return
         desc = self.project_desc.get("1.0", tk.END).strip()
         if not desc:
+            self.bring_to_front()
             messagebox.showwarning("Warning", "Enter project description")
             return
 
@@ -383,6 +392,8 @@ class AIQuoteGenerator:
 
         self.calc_totals()
 
+        self.bring_to_front()
+
         if added > 0:
             self.status_var.set(f"AI generated {added} items")
             messagebox.showinfo("Success", f"{added} items generated\nSubtotal: {self.subtotal_var.get()}")
@@ -391,9 +402,11 @@ class AIQuoteGenerator:
 
     def save_quotation(self):
         if not self.selected_customer_id:
+            self.bring_to_front()
             messagebox.showwarning("Warning", "Select customer")
             return
         if not self.items:
+            self.bring_to_front()
             messagebox.showwarning("Warning", "Generate items first")
             return
         try:
@@ -421,12 +434,15 @@ class AIQuoteGenerator:
             conn.commit()
             conn.close()
             self.status_var.set(f"Quotation {qno} saved")
+            self.bring_to_front()
             messagebox.showinfo("Success", f"Quotation {qno} saved")
         except Exception as e:
+            self.bring_to_front()
             messagebox.showerror("Error", str(e))
 
     def generate_pdf(self):
         if not self.items:
+            self.bring_to_front()
             messagebox.showwarning("Warning", "Generate items first")
             return
         try:
@@ -453,11 +469,14 @@ class AIQuoteGenerator:
             ok = pdf.generate_quotation_pdf_from_dict(data, fname)
             if ok:
                 self.status_var.set(f"PDF saved: {fname}")
+                self.bring_to_front()
                 if messagebox.askyesno("Open PDF", "Open PDF now?"):
                     os.startfile(fname)
             else:
+                self.bring_to_front()
                 messagebox.showerror("Error", "PDF generation failed")
         except Exception as e:
+            self.bring_to_front()
             messagebox.showerror("Error", str(e))
 
     def clear_all(self):
@@ -477,111 +496,100 @@ class AIQuoteGenerator:
         self.total_var.set("Rs. 0.00")
         self.status_var.set("Reset complete")
         self.load_customers()
-    
+
     def edit_item(self, event):
         """Edit selected quotation item on double-click"""
         selected = self.tree.selection()
         if not selected:
             return
-        
-        # Get selected item values
+
         item_id = selected[0]
         values = self.tree.item(item_id, 'values')
         if not values:
             return
-        
-        # Find the corresponding item in self.items
+
         item_name = values[0].strip()
         matching_items = [it for it in self.items if it['name'].startswith(item_name)]
         if not matching_items:
             return
         item = matching_items[0]
-        
-        # Create edit dialog
-        self.edit_dialog = tk.Toplevel(self.window)
-        self.edit_dialog.title("Edit Item")
-        self.edit_dialog.geometry("400x300")
-        self.edit_dialog.configure(bg="white")
-        self.edit_dialog.transient(self.window)
-        self.edit_dialog.grab_set()
-        
-        # Center dialog
-        self.edit_dialog.update_idletasks()
-        w = self.edit_dialog.winfo_width()
-        h = self.edit_dialog.winfo_height()
-        x = (self.edit_dialog.winfo_screenwidth() // 2) - (w // 2)
-        y = (self.edit_dialog.winfo_screenheight() // 2) - (h // 2)
-        self.edit_dialog.geometry(f'{w}x{h}+{x}+{y}')
-        
-        # Title
-        tk.Label(self.edit_dialog, text="✏️ Edit Item", font=("SF Pro Display", 14, "bold"),
+
+        edit_dialog = tk.Toplevel(self.window)
+        edit_dialog.title("Edit Item")
+        edit_dialog.geometry("400x300")
+        edit_dialog.configure(bg="white")
+        edit_dialog.transient(self.window)
+        edit_dialog.grab_set()
+
+        edit_dialog.update_idletasks()
+        w = edit_dialog.winfo_width()
+        h = edit_dialog.winfo_height()
+        x = (edit_dialog.winfo_screenwidth() // 2) - (w // 2)
+        y = (edit_dialog.winfo_screenheight() // 2) - (h // 2)
+        edit_dialog.geometry(f'{w}x{h}+{x}+{y}')
+
+        tk.Label(edit_dialog, text="✏️ Edit Item", font=("SF Pro Display", 14, "bold"),
                  bg="white", fg="#1d1d1f").pack(pady=(10, 20))
-        
-        # Form
-        form = tk.Frame(self.edit_dialog, bg="white")
+
+        form = tk.Frame(edit_dialog, bg="white")
         form.pack(padx=20, pady=10)
-        
-        # Item Name (read-only)
+
         tk.Label(form, text="Item:", bg="white", font=("SF Pro Text", 11)).grid(row=0, column=0, padx=5, pady=5, sticky='w')
-        name_label = tk.Label(form, text=item['name'], bg="white", font=("SF Pro Text", 11, "bold"))
-        name_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
-        
-        # Description
+        tk.Label(form, text=item['name'], bg="white", font=("SF Pro Text", 11, "bold")).grid(row=0, column=1, padx=5, pady=5, sticky='w')
+
         tk.Label(form, text="Description:", bg="white", font=("SF Pro Text", 11)).grid(row=1, column=0, padx=5, pady=5, sticky='w')
         desc_entry = tk.Entry(form, width=30, font=("SF Pro Text", 11))
         desc_entry.insert(0, item['description'])
         desc_entry.grid(row=1, column=1, padx=5, pady=5)
-        
-        # Quantity
+
         tk.Label(form, text="Quantity:", bg="white", font=("SF Pro Text", 11)).grid(row=2, column=0, padx=5, pady=5, sticky='w')
         qty_entry = tk.Entry(form, width=30, font=("SF Pro Text", 11))
         qty_entry.insert(0, str(item['quantity']))
         qty_entry.grid(row=2, column=1, padx=5, pady=5)
-        
-        # Rate
+
         tk.Label(form, text="Rate (Rs.):", bg="white", font=("SF Pro Text", 11)).grid(row=3, column=0, padx=5, pady=5, sticky='w')
         rate_entry = tk.Entry(form, width=30, font=("SF Pro Text", 11))
         rate_entry.insert(0, str(item['rate']))
         rate_entry.grid(row=3, column=1, padx=5, pady=5)
-        
-        # Buttons
-        btn_frame = tk.Frame(self.edit_dialog, bg="white")
+
+        btn_frame = tk.Frame(edit_dialog, bg="white")
         btn_frame.pack(pady=20)
-        
+
         def save_changes():
             try:
                 new_qty = float(qty_entry.get() or 0)
                 new_rate = float(rate_entry.get() or 0)
                 new_desc = desc_entry.get().strip()
-                
+
                 if new_qty <= 0:
+                    self.bring_to_front()
                     messagebox.showwarning("Warning", "Quantity must be greater than 0")
                     return
                 if new_rate <= 0:
+                    self.bring_to_front()
                     messagebox.showwarning("Warning", "Rate must be greater than 0")
                     return
-                
-                # Update item
+
                 item['quantity'] = new_qty
                 item['rate'] = new_rate
                 item['description'] = new_desc
                 item['amount'] = new_qty * new_rate
-                
-                # Refresh tree
+
                 self.refresh_tree()
                 self.calc_totals()
-                
-                self.edit_dialog.destroy()
+
+                edit_dialog.destroy()
                 self.status_var.set(f"✅ Updated {item['name']}")
-                
+
             except ValueError:
+                self.bring_to_front()
                 messagebox.showerror("Error", "Invalid number format")
-        
+
         tk.Button(btn_frame, text="💾 Save", command=save_changes,
                  bg=ModernStyle.ACCENT_GREEN, fg="white", font=("SF Pro Text", 11),
                  padx=20, pady=5, relief=tk.FLAT).pack(side=tk.LEFT, padx=5)
-        
-        tk.Button(btn_frame, text="❌ Cancel", command=self.edit_dialog.destroy,
+
+        tk.Button(btn_frame, text="❌ Cancel", command=edit_dialog.destroy,
                  bg=ModernStyle.TEXT_SECONDARY, fg="white", font=("SF Pro Text", 11),
                  padx=20, pady=5, relief=tk.FLAT).pack(side=tk.LEFT, padx=5)
 
