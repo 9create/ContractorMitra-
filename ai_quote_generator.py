@@ -1,6 +1,6 @@
 """
 AI QUOTE GENERATOR - ContractorMitra
-Working Version + Focus Fixed
+Working Version + All Buttons Restored + Focus Fixed
 """
 
 import tkinter as tk
@@ -28,7 +28,7 @@ class ModernStyle:
     FONT_SMALL = ("SF Pro Text", 10)
 
 class ModernButton(tk.Button):
-    def __init__(self, parent, text, command, bg_color=ModernStyle.ACCENT_BLUE, **kwargs):
+    def __init__(self, parent, text, command, bg_color=ModernStyle.ACCENT_BLUE, width=15, **kwargs):
         super().__init__(
             parent,
             text=text,
@@ -40,8 +40,9 @@ class ModernButton(tk.Button):
             activeforeground="white",
             relief=tk.FLAT,
             bd=0,
-            padx=15,
-            pady=8,
+            padx=10,
+            pady=5,
+            width=width,
             cursor="hand2",
             **kwargs
         )
@@ -79,7 +80,6 @@ class AIQuoteGenerator:
         self.load_materials()
         self.load_customers()
 
-        # Ensure this window stays on top when messagebox appears
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -121,7 +121,7 @@ class AIQuoteGenerator:
         self.customer_combo.bind('<<ComboboxSelected>>', self.on_customer_select)
 
         ModernButton(row1, "+ New Customer", self.open_customer_window,
-                     ModernStyle.ACCENT_GREEN).pack(side=tk.LEFT)
+                     ModernStyle.ACCENT_GREEN, width=12).pack(side=tk.LEFT)
 
         self.customer_info_var = tk.StringVar(value="No customer selected")
         tk.Label(cust_frame, textvariable=self.customer_info_var,
@@ -142,7 +142,7 @@ class AIQuoteGenerator:
         btn_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
         btn_frame.pack(pady=10)
         ModernButton(btn_frame, "⚡ GENERATE QUOTATION ⚡",
-                     self.generate_ai_quote, ModernStyle.ACCENT_GREEN, width=250).pack()
+                     self.generate_ai_quote, ModernStyle.ACCENT_GREEN, width=25).pack()
 
         # Items Treeview
         items_frame = tk.LabelFrame(main, text="Quotation Items", font=ModernStyle.FONT_TITLE,
@@ -186,18 +186,18 @@ class AIQuoteGenerator:
         tk.Label(total_frame, textvariable=self.total_var, font=ModernStyle.FONT_TITLE,
                  fg=ModernStyle.ACCENT_RED, bg=ModernStyle.BG_COLOR).pack(side=tk.LEFT)
 
-        # Action Buttons
+        # Action Buttons (Fixed - All present)
         action_frame = tk.Frame(main, bg=ModernStyle.BG_COLOR)
-        action_frame.pack(fill=tk.X, pady=10)
+        action_frame.pack(fill=tk.X, pady=15)
 
-        ModernButton(action_frame, "💾 Save Quotation", self.save_quotation,
-                     ModernStyle.ACCENT_BLUE).pack(side=tk.LEFT, padx=5)
-        ModernButton(action_frame, "📄 Generate PDF", self.generate_pdf,
-                     ModernStyle.ACCENT_ORANGE).pack(side=tk.LEFT, padx=5)
-        ModernButton(action_frame, "🔄 Reset All", self.clear_all,
-                     ModernStyle.TEXT_SECONDARY).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_frame, "💾 Save", self.save_quotation,
+                     ModernStyle.ACCENT_BLUE, width=12).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_frame, "📄 PDF", self.generate_pdf,
+                     ModernStyle.ACCENT_ORANGE, width=12).pack(side=tk.LEFT, padx=5)
+        ModernButton(action_frame, "🔄 Reset", self.clear_all,
+                     ModernStyle.TEXT_SECONDARY, width=12).pack(side=tk.LEFT, padx=5)
         ModernButton(action_frame, "❌ Close", self.window.destroy,
-                     ModernStyle.TEXT_SECONDARY).pack(side=tk.LEFT, padx=5)
+                     ModernStyle.TEXT_SECONDARY, width=12).pack(side=tk.LEFT, padx=5)
 
         # Status Bar
         self.status_var = tk.StringVar(value="Ready. Select customer and describe project.")
@@ -388,7 +388,6 @@ class AIQuoteGenerator:
 
         self.calc_totals()
 
-        # 🔥 FIX: Bring AI window back to front before showing messagebox
         self.window.lift()
         self.window.focus_force()
 
